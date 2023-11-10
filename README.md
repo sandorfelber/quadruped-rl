@@ -8,6 +8,8 @@ See [https://github.com/Gepetto/soloRL] for more details about the training envi
 
 # Dependencies
 
+* Install example robot data `sudo apt install robotpkg-py3\*-example-robot-data`
+
 * Install a Python 3 version (for instance Python 3.8)
 
 * Install PyBullet (simulation environment): `pip3 install --user pybullet`
