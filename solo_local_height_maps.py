@@ -5,7 +5,7 @@ class SoloLocalHeightMaps:
 
     def __init__(self):
         # Initialize the height map with zeros (default height)
-        self.height_map = np.zeros((21, 33))
+        self.height_map = np.zeros((33, 21))
         self.first_run = True
         self.pre_trench_call_counter = 0
         self.plotter_counter = 0
@@ -43,21 +43,21 @@ class SoloLocalHeightMaps:
             for j in range(self.height_map.shape[1]):  # For each column
                 # Check if the row index is within the current obstacle range
                 if i >= start_index_for_obstacle:
-                    if (j % 21) < 0:  # Red condition, applied based on row index
+                    if (j % 21) < 5:  # Red condition, applied based on row index
                         self.height_map[i, j] = 1
-                    elif (j % 21) > 20:  # Green condition
+                    elif (j % 21) > 16:  # Green condition
                         self.height_map[i, j] = 1
                 # Yellow and Blue conditions remain ignored for height assignment
 
-        # if self.first_run:
-        #     self.plotter_counter += 1
-        #     if self.plotter_counter % 5 == 0:
-        #         plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
-        #         plt.colorbar(label='Height (m)')
-        #         plt.title('Synthetic Height Map Visualization')
-        #         plt.xlabel('X Coordinate')
-        #         plt.ylabel('Y Coordinate')
-        #         plt.show()
+        if self.first_run:
+            self.plotter_counter += 1
+            if self.plotter_counter % 5 == 0:
+                plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
+                plt.colorbar(label='Height (m)')
+                plt.title('Synthetic Height Map Visualization')
+                plt.xlabel('X Coordinate')
+                plt.ylabel('Y Coordinate')
+                plt.show()
         # Increment the call counter
         self.pre_trench_call_counter += 1
         if self.pre_trench_call_counter >= total_shifts:
