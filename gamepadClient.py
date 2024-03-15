@@ -103,6 +103,15 @@ class GamepadClient():
                 self.leftJoystickY.value = -1.0
             elif key == keyboard.Key.down:
                 self.leftJoystickY.value = 1.0
+
+            elif key == keyboard.Key.f4:
+                self.southButton.value = 1.0 # Flat
+            elif key == keyboard.Key.f5:
+                self.eastButton.value = 1.0 # Ascent
+            elif key == keyboard.Key.f6:
+                self.westButton.value = 1.0 # Descent
+            elif key == keyboard.Key.f7:
+                self.northButton.value = 1.0 # Trench
         except AttributeError:
             pass
 
@@ -115,6 +124,12 @@ class GamepadClient():
                 self.rightJoystickX.value = 0.0
             elif key in [keyboard.Key.up, keyboard.Key.down]:
                 self.leftJoystickY.value = 0.0
+            elif key in [keyboard.Key.f4, keyboard.Key.f5, keyboard.Key.f6, keyboard.Key.f7]:
+                pass
+                # self.southButton.value = 0.0
+                # self.eastButton.value = 0.0
+                # self.westButton.value = 0.0
+                # self.northButton.value = 0.0
         except AttributeError:
             pass
 

@@ -11,6 +11,7 @@ import time
 from ControllerRL import ControllerRL
 import pinocchio as pin
 from Joystick import Joystick
+from solo_local_height_maps import SoloLocalHeightMaps
 import rospy
 from geometry_msgs.msg import TransformStamped
 import tf.transformations
@@ -38,13 +39,13 @@ class SoloRLDevice:
         
         height_map_reshaped = self.pyb_global_height_map.reshape(387, 387)  # Reshape to 21 rows x 33 columns
 
-        # Step 2: Visualize the reshaped data
-        plt.imshow(height_map_reshaped, cmap='viridis', origin='lower', interpolation='none')
-        plt.colorbar(label='Height')
-        plt.title('Height Map Visualization')
-        plt.xlabel('X Coordinate')
-        plt.ylabel('Y Coordinate')
-        plt.show()
+        # Visualize the reshaped data
+        # plt.imshow(height_map_reshaped, cmap='viridis', origin='lower', interpolation='none')
+        # plt.colorbar(label='Height')
+        # plt.title('Height Map Visualization')
+        # plt.xlabel('X Coordinate')
+        # plt.ylabel('Y Coordinate')
+        # plt.show()
 
 
     def _pre_init(self):
@@ -60,6 +61,10 @@ class SoloRLDevice:
             self.policy.forward()
 
         params = self.params
+
+        self.solo_local_height_map = SoloLocalHeightMaps()
+        
+
         # Define joystick
         if params.USE_JOYSTICK:
             self.joystick = Joystick()
@@ -76,30 +81,54 @@ class SoloRLDevice:
     def init_robot_and_wait_floor(self):
          self.device, self.logger, _qc = initialize(self.params, self.policy._Nobs, self.params.q_init, np.zeros((12,)), 100000)
 
+    def height_map(self):
+        heights = self.solo_local_height_map.flatbed()
+        #Joystick.computeCode()
+        if self.joystick.joystick_code == 1:
+            print("flatbed")
+            heights = self.solo_local_height_map.flatbed()
+        elif self.joystick.joystick_code == 2:
+            heights = self.solo_local_height_map.trench()
+            print("TRENCH")
+        elif self.joystick.joystick_code == 3:
+            heights = self.solo_local_height_map.pre_trench()
+            print("pre_trench")
+        elif self.joystick.joystick_code == 4:
+            heights = self.solo_local_height_map.starting_descent()
+        else:
+            heights = self.solo_local_height_map.flatbed()
+            alma = heights = self.device.terrain_height(self.measure_points)
+        return self.device.dummyPos[2] - 0.215 - heights
+    
     #OG WORKING FUNCTION
     # def height_map(self):
     #     if self.params.SIMULATION:
     #         heights = self.device.terrain_height(self.measure_points)
+    #         height_map = np.zeros((33, 21))
+    #         print(heights.shape)
+    #         print(height_map.shape)
+    #         print(height_map.flatten().shape)
+    #         exit(0)
     #     else:
     #         heights = np.zeros(self.measure_points.shape[0]) # not implemented on real robot
     #     return self.device.dummyPos[2] - 0.215 - heights
     
     #Trying to implement height map query
-    def height_map(self):
-        if not self.params.SIMULATION:
-            heights = self.device.terrain_height(self.measure_points)
-            #heights_real = self.terrain_height_real_robot(self.measure_points)
-            #DEBUGGING:
-            #height_difference = heights - heights_real
-            #print("Height difference: ", height_difference)
-            height_map_final = self.device.dummyPos[2] - 0.215 - heights
+    # def height_map(self):
+    #     if not self.params.SIMULATION:
+    #         heights = self.device.terrain_height(self.measure_points)
+    #         #heights_real = self.terrain_height_real_robot(self.measure_points)
+    #         #DEBUGGING:
+    #         #height_difference = heights - heights_real
+    #         #print("Height difference: ", height_difference)
+    #         height_map_final = self.device.dummyPos[2] - 0.215 - heights
 
-            #return self.vicon_positions[2] - 0.215 - heights_real
-        else:
-            #heights = np.zeros(self.measure_points.shape[0]) # not implemented on real robot
-            heights_real = self.terrain_height_real_robot(self.measure_points)
-            height_map_final = self.vicon_positions[2] - 0.215 - heights_real
-            return height_map_final
+    #         #return self.vicon_positions[2] - 0.215 - heights_real
+    #     else:
+    #         #heights = np.zeros(self.measure_points.shape[0]) # not implemented on real robot
+    #         heights_real = self.terrain_height_real_robot(self.measure_points)
+    #         height_map_final = self.vicon_positions[2] - 0.215 - heights_real
+    #         return height_map_final
 
 
     # def height_map(self):

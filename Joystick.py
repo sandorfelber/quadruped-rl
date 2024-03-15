@@ -20,7 +20,7 @@ class Joystick:
 
         self.reduced = False
         self.stop = False
-
+        
         self.alpha = 0.003  # Coefficient to low pass the joystick velocity
 
         # Joystick variables (linear and angular velocity and their scaling for the joystick)
@@ -28,8 +28,8 @@ class Joystick:
         self.vY = 0.
         self.vYaw = 0.
         self.vZ = 0.
-        self.VxScale = 0.65
-        self.VyScale = 0.5
+        self.VxScale = 0.8
+        self.VyScale = 0.65
         self.vYawScale = 1.
         self.vZScale = 0.3
         # self.VxScale = 0.15
@@ -99,23 +99,23 @@ class Joystick:
         # Switch gaits
         if self.gp.northButton.value:
             self.northButton = True
-            self.eastButton = False
-            self.southButton = False
-            self.westButton = False
+            # self.eastButton = False
+            # self.southButton = False
+            # self.westButton = False
         elif self.gp.eastButton.value:
-            self.northButton = False
+            # self.northButton = False
             self.eastButton = True
-            self.southButton = False
-            self.westButton = False
+            # self.southButton = False
+            # self.westButton = False
         elif self.gp.southButton.value:
-            self.northButton = False
-            self.eastButton = False
+            # self.northButton = False
+            # self.eastButton = False
             self.southButton = True
-            self.westButton = False
+            # self.westButton = False
         elif self.gp.westButton.value:
-            self.northButton = False
-            self.eastButton = False
-            self.southButton = False
+            # self.northButton = False
+            # self.eastButton = False
+            # self.southButton = False
             self.westButton = True
 
         # Low pass filter to slow down the changes of velocity when moving the joysticks
@@ -129,19 +129,21 @@ class Joystick:
 
     def computeCode(self):
         # Check joystick buttons to trigger a change of gait type
-        self.joystick_code = 0
+        
         if self.southButton:
             self.joystick_code = 1
-            self.southButton = False
+            # self.southButton = False
+            #print("FLAT")
         elif self.eastButton:
             self.joystick_code = 2
-            self.eastButton = False
+            # self.eastButton = False
+            #print("trench")
         elif self.westButton:
             self.joystick_code = 3
-            self.westButton = False
+            # self.westButton = False
         elif self.northButton:
             self.joystick_code = 4
-            self.northButton = False
+            # self.northButton = False
 
 if __name__ == "__main__":
 
