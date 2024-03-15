@@ -9,6 +9,7 @@ class SoloLocalHeightMaps:
         self.first_run = True
         self.pre_trench_call_counter = 0
         self.plotter_counter = 0
+        self.obstacle_height = 0.45
 
     def trench(self):
         # Iterate over each point in the grid
@@ -16,16 +17,16 @@ class SoloLocalHeightMaps:
             for j in range(self.height_map.shape[1]):  # For each column
                 # Determine color based on position (using provided logic)
                 if (j % 21) < 4:  # Red condition
-                    self.height_map[i, j] = 1  # Set height to 1 meter
+                    self.height_map[i, j] = self.obstacle_height  # Set height to 1 meter
                 elif (j % 21) > 16:  # Green condition
-                    self.height_map[i, j] = 1  # Set height to 1 meter
+                    self.height_map[i, j] = self.obstacle_height  # Set height to 1 meter
                 # Yellow and Blue conditions are ignored for height assignment
         return self.height_map.flatten()
     
     def pre_trench(self):
         length = 0.8
         cell_length = length / self.height_map.shape[0]
-
+        
         # Number of iterations to complete the transition
         total_shifts = 33
         # Determine how much of the map the obstacles should occupy after 33 iterations
@@ -44,20 +45,20 @@ class SoloLocalHeightMaps:
                 # Check if the row index is within the current obstacle range
                 if i >= start_index_for_obstacle:
                     if (j % 21) < 5:  # Red condition, applied based on row index
-                        self.height_map[i, j] = 1
-                    elif (j % 21) > 16:  # Green condition
-                        self.height_map[i, j] = 1
+                        self.height_map[i, j] = self.obstacle_height
+                    elif (j % 21) > 17:  # Green condition
+                        self.height_map[i, j] = self.obstacle_height
                 # Yellow and Blue conditions remain ignored for height assignment
 
-        if self.first_run:
-            self.plotter_counter += 1
-            if self.plotter_counter % 5 == 0:
-                plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
-                plt.colorbar(label='Height (m)')
-                plt.title('Synthetic Height Map Visualization')
-                plt.xlabel('X Coordinate')
-                plt.ylabel('Y Coordinate')
-                plt.show()
+        # if self.first_run:
+        #     self.plotter_counter += 1
+        #     if self.plotter_counter % 5 == 0:
+        #         plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
+        #         plt.colorbar(label='Height (m)')
+        #         plt.title('Synthetic Height Map Visualization')
+        #         plt.xlabel('X Coordinate')
+        #         plt.ylabel('Y Coordinate')
+        #         plt.show()
         # Increment the call counter
         self.pre_trench_call_counter += 1
         if self.pre_trench_call_counter >= total_shifts:

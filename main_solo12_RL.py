@@ -97,8 +97,8 @@ class SoloRLDevice:
             heights = self.solo_local_height_map.starting_descent()
         else:
             heights = self.solo_local_height_map.flatbed()
-            alma = heights = self.device.terrain_height(self.measure_points)
-        return self.device.dummyPos[2] - 0.215 - heights
+        heights_ = self.device.terrain_height(self.measure_points, heights)
+        return heights #- 0.215 #self.device.dummyPos[2] - 0.215 - heights
     
     #OG WORKING FUNCTION
     # def height_map(self):

@@ -742,7 +742,7 @@ class PyBulletSimulator():
 
         return
     
-    def terrain_height(self, points, robot_frame=True):
+    def terrain_height(self, points, main_heights, robot_frame=True):
         """Returns the terrain's sampled height at the specified location(s). Only for simulation.
         This is only implemented for custom terrains and will always return 0-filled arrays with
         plane or rough terrains.
@@ -777,7 +777,12 @@ class PyBulletSimulator():
             #print("ASDA")
             pyb.removeUserDebugItem(self.debugPoints)
         #print("ASDA2")
-        self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, self.pyb_sim.height_map[coords][..., None]), axis=-1),
+        #print(self.pyb_sim.height_map[coords][..., None].shape)
+        #print(main_heights.reshape(-1, 1).shape)
+        #exit()
+        #print("self.pyb_sim.height_map[coords][..., None]", self.pyb_sim.height_map[coords][..., None])
+        #print("main_heights", main_heights)
+        self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, main_heights.reshape(-1, 1)), axis=-1),
                                 np.tile(np.array([[0, 0, 1]]), (693, 1)),
                                 pointSize=10,
                                 lifeTime=0.15
