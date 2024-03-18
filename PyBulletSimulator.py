@@ -782,7 +782,8 @@ class PyBulletSimulator():
         #exit()
         #print("self.pyb_sim.height_map[coords][..., None]", self.pyb_sim.height_map[coords][..., None])
         #print("main_heights", main_heights)
-        self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, main_heights.reshape(-1, 1)), axis=-1),
+        self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, self.pyb_sim.height_map[coords][..., None]), axis=-1),
+        #self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, main_heights.reshape(-1, 1)), axis=-1),
                                 np.tile(np.array([[0, 0, 1]]), (693, 1)),
                                 pointSize=10,
                                 lifeTime=0.15
