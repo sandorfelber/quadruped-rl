@@ -12,9 +12,9 @@ from ControllerRL import ControllerRL
 import pinocchio as pin
 from Joystick import Joystick
 from solo_local_height_maps import SoloLocalHeightMaps
-import rospy
-from geometry_msgs.msg import TransformStamped
-import tf.transformations
+#import rospy
+#from geometry_msgs.msg import TransformStamped
+#import tf.transformations
 import matplotlib.pyplot as plt
 
 PROFILER = False
@@ -32,7 +32,7 @@ class SoloRLDevice:
             x, y = np.meshgrid(params.measure_x, params.measure_y, indexing="ij")
             self.measure_points = np.stack((x.flatten(), y.flatten()), axis=-1)
         self._pre_init()
-        self.listener()
+        #self.listener()
         #LOAD FROM LAST PYBULLET SAVE
         self.pyb_global_height_map = np.loadtxt("height_map.txt", delimiter=",")
         self.pyb_sampling_bounds = np.loadtxt("sampling_bounds.txt", delimiter=",")
@@ -97,8 +97,8 @@ class SoloRLDevice:
             heights = self.solo_local_height_map.starting_descent()
         else:
             heights = self.solo_local_height_map.flatbed()
-        heights_ = self.device.terrain_height(self.measure_points, heights)
-        return heights #- 0.215 #self.device.dummyPos[2] - 0.215 - heights
+        heights = self.device.terrain_height(self.measure_points, heights)
+        return self.device.dummyPos[2] - 0.215 - heights
     
     #OG WORKING FUNCTION
     # def height_map(self):
@@ -327,33 +327,33 @@ class SoloRLDevice:
 
         self.damping_and_shutdown()
 
-    def quaternion_callback(self, msg):
-        # Extract the position (translation)
-        position = np.array([
-        msg.transform.translation.x,
-        msg.transform.translation.y,
-        msg.transform.translation.z
-        ])
+    # def quaternion_callback(self, msg):
+    #     # Extract the position (translation)
+    #     position = np.array([
+    #     msg.transform.translation.x,
+    #     msg.transform.translation.y,
+    #     msg.transform.translation.z
+    #     ])
 
-        # Assuming the quaternion is part of a geometry_msgs/TransformStamped message
-        quaternion = (
-            msg.transform.rotation.x,
-            msg.transform.rotation.y,
-            msg.transform.rotation.z,
-            msg.transform.rotation.w
-        )
-        # X, Y, Z positions
-        self.vicon_positions = position
-        self.vicon_positions = [0, 0, 0.22]
-        #print(self.vicon_positions)
-        # Update the roll (x), pitch (y), and yaw (z) angles
-        self.vicon_attitude_euler = tf.transformations.euler_from_quaternion(quaternion)  # Convert to Euler angles
+    #     # Assuming the quaternion is part of a geometry_msgs/TransformStamped message
+    #     quaternion = (
+    #         msg.transform.rotation.x,
+    #         msg.transform.rotation.y,
+    #         msg.transform.rotation.z,
+    #         msg.transform.rotation.w
+    #     )
+    #     # X, Y, Z positions
+    #     self.vicon_positions = position
+    #     self.vicon_positions = [0, 0, 0.22]
+    #     #print(self.vicon_positions)
+    #     # Update the roll (x), pitch (y), and yaw (z) angles
+    #     self.vicon_attitude_euler = tf.transformations.euler_from_quaternion(quaternion)  # Convert to Euler angles
         
 
-    def listener(self):
-        if not self.params.SIMULATION or self.params.SIMULATION:
-            rospy.init_node('quaternion_listener', anonymous=True)  # Initialize the ROS node
-            rospy.Subscriber("/vicon/Solo/Solo", TransformStamped, self.quaternion_callback)  # Subscribe to the quaternion topic
+    # def listener(self):
+    #     if not self.params.SIMULATION or self.params.SIMULATION:
+    #         rospy.init_node('quaternion_listener', anonymous=True)  # Initialize the ROS node
+    #         rospy.Subscriber("/vicon/Solo/Solo", TransformStamped, self.quaternion_callback)  # Subscribe to the quaternion topic
 
             
 
@@ -382,7 +382,6 @@ def main():
     policy = ControllerRL(SoloRLDevice.parse_file_loc_policy(), q_init, params.measure_height)
     
     device = SoloRLDevice(policy, params, "solo")
-    #rospy.spin()
     
     device.control_loop()
     device.save_plot_logs()
@@ -398,7 +397,7 @@ if __name__ == "__main__":
         profiler.enable()
 
     main()
-    rospy.spin()
+    #rospy.spin()
 
     if PROFILER:
         profiler.disable()

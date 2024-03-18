@@ -9,26 +9,29 @@ class SoloLocalHeightMaps:
         self.first_run = True
         self.pre_trench_call_counter = 0
         self.plotter_counter = 0
-        self.obstacle_height = 0.45
+        self.obstacle_height = 1.0
+        self.k = 0
 
     def trench(self):
+
+        side_rows = 1
         # Iterate over each point in the grid
         for i in range(self.height_map.shape[0]):  # For each row
             for j in range(self.height_map.shape[1]):  # For each column
                 # Determine color based on position (using provided logic)
-                if (j % 21) < 4:  # Red condition
+                if (j % self.height_map.shape[0]) < side_rows:  # Red condition
                     self.height_map[i, j] = self.obstacle_height  # Set height to 1 meter
-                elif (j % 21) > 16:  # Green condition
+                elif (j % self.height_map.shape[0]) >= (self.height_map.shape[0]-side_rows):  # Green condition
                     self.height_map[i, j] = self.obstacle_height  # Set height to 1 meter
                 # Yellow and Blue conditions are ignored for height assignment
         return self.height_map.flatten()
     
     def pre_trench(self):
-        length = 0.8
-        cell_length = length / self.height_map.shape[0]
-        
+        #length = 0.8
+        #cell_length = length / self.height_map.shape[0]
+        side_rows = 1
         # Number of iterations to complete the transition
-        total_shifts = 33
+        total_shifts = self.height_map.shape[0] - 1
         # Determine how much of the map the obstacles should occupy after 33 iterations
         target_occupation = self.height_map.shape[0] * 0.75
         # Calculate the increment of the obstacle extension per call
@@ -38,15 +41,14 @@ class SoloLocalHeightMaps:
 
         # Calculate the start index for the obstacles based on the current extension
         start_index_for_obstacle = self.height_map.shape[0] - current_extension_length
-
         # Iterate over each point in the grid
         for i in range(self.height_map.shape[0]):  # For each row
             for j in range(self.height_map.shape[1]):  # For each column
                 # Check if the row index is within the current obstacle range
                 if i >= start_index_for_obstacle:
-                    if (j % 21) < 5:  # Red condition, applied based on row index
+                    if (j % self.height_map.shape[1]) < side_rows:  # Red condition, applied based on row index
                         self.height_map[i, j] = self.obstacle_height
-                    elif (j % 21) > 17:  # Green condition
+                    elif (j % self.height_map.shape[1]) >= (self.height_map.shape[1] - side_rows):  # Green condition
                         self.height_map[i, j] = self.obstacle_height
                 # Yellow and Blue conditions remain ignored for height assignment
 
@@ -60,8 +62,16 @@ class SoloLocalHeightMaps:
         #         plt.ylabel('Y Coordinate')
         #         plt.show()
         # Increment the call counter
-        self.pre_trench_call_counter += 1
+
+        if self.k > 1:
+            self.k = 0
+            self.pre_trench_call_counter += 1
+        else:    
+            self.k += 1
+
         if self.pre_trench_call_counter >= total_shifts:
+            # print(self.height_map)
+            # exit()
             self.trench() # Call trench after fully extended
             return self.height_map.flatten()
         else:

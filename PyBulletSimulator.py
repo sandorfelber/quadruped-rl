@@ -790,6 +790,7 @@ class PyBulletSimulator():
         
         #td = (end - start).total_seconds() * 10**3
         #print(f"The time of execution of above program is : {td:.03f}ms")
+
         return self.pyb_sim.height_map[coords]
 
     def cross3(self, left, right):
@@ -876,7 +877,7 @@ class PyBulletSimulator():
         # Compute one step of simulation
         pyb.stepSimulation()
 
-        pyb.resetDebugVisualizerCamera(cameraDistance=0.9, 
+        pyb.resetDebugVisualizerCamera(cameraDistance=1.2, 
                                        cameraYaw=(0.0*self.imu.attitude_euler[2]*(180/3.1415)-90),
                                        cameraPitch=-39.9,
                                        cameraTargetPosition=[self.baseState[0][0], self.baseState[0][1] + 0.0, 0.0])
