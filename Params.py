@@ -38,7 +38,7 @@ class RLParams():
         self.config_file = "config_solo12.yaml"  #  Name of the yaml file containing hardware information
         self.record_video = False
         # only used in simulation; can be "plane", "rough" or "custom:/path/to/terrain"
-        self.terrain_type = f"custom:/home/sandor/robots_ws/quadruped-rl/terrain"
+        self.terrain_type = f"custom:/home/thomas_cbrs/Desktop/quadruped-rl/terrain"
         self.custom_sampling_interval = 0.02
 
         # -- MUST MATCH THE INPUT OF THE POLICY --

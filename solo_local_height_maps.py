@@ -17,7 +17,7 @@ class SoloLocalHeightMaps:
 
     def trench(self):
 
-        side_rows = 7
+        side_rows = 6
         # Iterate over each point in the grid
         for i in range(self.height_map.shape[0]):  # For each row
             for j in range(self.height_map.shape[1]):  # For each column
@@ -33,7 +33,7 @@ class SoloLocalHeightMaps:
         
         #length = 0.8
         #cell_length = length / self.height_map.shape[0]
-        side_rows = 7
+        side_rows = 6
         # Number of iterations to complete the transition
         total_shifts = self.height_map.shape[0] - 1
         # Determine how much of the map the obstacles should occupy after 33 iterations

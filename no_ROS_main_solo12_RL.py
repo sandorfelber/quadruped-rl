@@ -97,7 +97,7 @@ class SoloRLDevice:
             heights = self.solo_local_height_map.starting_ascent()
         else:
             heights = self.solo_local_height_map.flatbed()
-        heights = self.device.terrain_height(self.measure_points, heights)
+        #heights = self.device.terrain_height(self.measure_points, heights)
         return self.device.dummyPos[2] - 0.215 - heights
     
     #OG WORKING FUNCTION
