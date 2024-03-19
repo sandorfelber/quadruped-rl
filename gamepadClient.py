@@ -109,9 +109,9 @@ class GamepadClient():
             elif key == keyboard.Key.f5:
                 self.eastButton.value = 1.0 # Ascent
             elif key == keyboard.Key.f6:
-                self.westButton.value = 1.0 # Descent
+                self.westButton.value = 1.0 # Pretrench
             elif key == keyboard.Key.f7:
-                self.northButton.value = 1.0 # Trench
+                self.northButton.value = 1.0 # Ascent
         except AttributeError:
             pass
 

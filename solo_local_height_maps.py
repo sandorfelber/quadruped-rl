@@ -12,6 +12,8 @@ class SoloLocalHeightMaps:
         self.plotter_counter = 0
         self.obstacle_height = 0.4
         self.k = 0
+        self.first_flatbed_call = True
+        self.first_starting_ascent_call = True
 
     def trench(self):
 
@@ -85,9 +87,11 @@ class SoloLocalHeightMaps:
         if self.pre_trench_call_counter >= total_shifts:
             # print(self.height_map)
             # exit()
+            self.first_flatbed_call = True
             self.trench() # Call trench after fully extended
             return self.height_map.flatten()
         else:
+            self.first_flatbed_call = True
             return self.height_map.flatten()
 
     #trench()
@@ -98,19 +102,21 @@ class SoloLocalHeightMaps:
         for i in range(self.height_map.shape[0]):  # For each row
             for j in range(self.height_map.shape[1]):  # For each column
                 self.height_map[i, j] = current_height  # Set height
-        plt.clf()  # Clear the current figure's content
-        plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
-        plt.colorbar(label='Height (m)')
-        plt.title('Synthetic Height Map Visualization')
-        plt.xlabel('X Coordinate')
-        plt.ylabel('Y Coordinate')
-        plt.draw()  # Update the plot
-        plt.pause(0.0001)  # Short pause to allow the plot to be updated
+        if self.first_flatbed_call:
+            self.first_flatbed_call = False
+            plt.clf()  # Clear the current figure's content
+            plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
+            plt.colorbar(label='Height (m)')
+            plt.title('Synthetic Height Map Visualization')
+            plt.xlabel('X Coordinate')
+            plt.ylabel('Y Coordinate')
+            plt.draw()  # Update the plot
+            plt.pause(0.0001)  # Short pause to allow the plot to be updated
         return self.height_map.flatten()
-    #flatbed()
+            #flatbed()
                     
     def starting_ascent(self):
-        max_height = 0.4  # Maximum height at the top edge
+        max_height = 0.25  # Maximum height at the top edge
         length = 0.8  # Total length in meters
         # Calculate the physical size of each cell in the length direction
         cell_length = length / self.height_map.shape[0]
@@ -128,6 +134,17 @@ class SoloLocalHeightMaps:
                 dist_ratio = dist_y / (length / 2)
                 # Set height based on distance ratio
                 self.height_map[i, :] = dist_ratio * max_height
+        if self.first_starting_ascent_call:
+            self.first_starting_ascent_call = False
+            plt.clf()  # Clear the current figure's content
+            plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
+            plt.colorbar(label='Height (m)')
+            plt.title('Synthetic Height Map Visualization')
+            plt.xlabel('X Coordinate')
+            plt.ylabel('Y Coordinate')
+            plt.draw()  # Update the plot
+            plt.pause(0.0001)  # Short pause to allow the plot to be updated
+
         return self.height_map.flatten()
     #starting_ascent(height_map)
 
