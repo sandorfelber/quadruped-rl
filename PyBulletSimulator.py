@@ -769,25 +769,25 @@ class PyBulletSimulator():
         points = points.astype(int)
 
         coords = np.ravel_multi_index((points[..., 1], points[..., 0]), self.pyb_sim.sampling_bounds[2:4], mode="clip")
-    #     #print(coords)
-    #    # UNCOMMENT TO SHOW MEASURED POINTS
-    #     #self.debugPoints = 1
-    #     #end = datetime.now()
-    #     if self.debugPoints >= 0:
-    #         #print("ASDA")
-    #         pyb.removeUserDebugItem(self.debugPoints)
-    #     #print("ASDA2")
-    #     #print(self.pyb_sim.height_map[coords][..., None].shape)
-    #     #print(main_heights.reshape(-1, 1).shape)
-    #     #exit()
-    #     #print("self.pyb_sim.height_map[coords][..., None]", self.pyb_sim.height_map[coords][..., None])
-    #     #print("main_heights", main_heights)
-    #     self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, self.pyb_sim.height_map[coords][..., None]), axis=-1),
-    #     #self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, main_heights.reshape(-1, 1)), axis=-1),
-    #                             np.tile(np.array([[0, 0, 1]]), (693, 1)),
-    #                             pointSize=10,
-    #                             lifeTime=0.15
-    #                             )
+        #print(coords)
+       # UNCOMMENT TO SHOW MEASURED POINTS
+        #self.debugPoints = 1
+        #end = datetime.now()
+        # if self.debugPoints >= 0:
+        #     #print("ASDA")
+        #     pyb.removeUserDebugItem(self.debugPoints)
+        # #print("ASDA2")
+        # #print(self.pyb_sim.height_map[coords][..., None].shape)
+        # #print(main_heights.reshape(-1, 1).shape)
+        # #exit()
+        # #print("self.pyb_sim.height_map[coords][..., None]", self.pyb_sim.height_map[coords][..., None])
+        # #print("main_heights", main_heights)
+        # #self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, self.pyb_sim.height_map[coords][..., None]), axis=-1),
+        # self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, main_heights.reshape(-1, 1)), axis=-1),
+        #                         np.tile(np.array([[0, 0, 1]]), (693, 1)),
+        #                         pointSize=10,
+        #                         lifeTime=0.15
+        #                         )
         
         #td = (end - start).total_seconds() * 10**3
         #print(f"The time of execution of above program is : {td:.03f}ms")

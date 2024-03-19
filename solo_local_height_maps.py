@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+#from IPython.display import display, clear_output
 
 class SoloLocalHeightMaps:
 
@@ -9,12 +10,12 @@ class SoloLocalHeightMaps:
         self.first_run = True
         self.pre_trench_call_counter = 0
         self.plotter_counter = 0
-        self.obstacle_height = 1.0
+        self.obstacle_height = 0.4
         self.k = 0
 
     def trench(self):
 
-        side_rows = 1
+        side_rows = 7
         # Iterate over each point in the grid
         for i in range(self.height_map.shape[0]):  # For each row
             for j in range(self.height_map.shape[1]):  # For each column
@@ -27,9 +28,10 @@ class SoloLocalHeightMaps:
         return self.height_map.flatten()
     
     def pre_trench(self):
+        
         #length = 0.8
         #cell_length = length / self.height_map.shape[0]
-        side_rows = 1
+        side_rows = 7
         # Number of iterations to complete the transition
         total_shifts = self.height_map.shape[0] - 1
         # Determine how much of the map the obstacles should occupy after 33 iterations
@@ -51,16 +53,27 @@ class SoloLocalHeightMaps:
                     elif (j % self.height_map.shape[1]) >= (self.height_map.shape[1] - side_rows):  # Green condition
                         self.height_map[i, j] = self.obstacle_height
                 # Yellow and Blue conditions remain ignored for height assignment
-
-        # if self.first_run:
-        #     self.plotter_counter += 1
-        #     if self.plotter_counter % 5 == 0:
-        #         plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
-        #         plt.colorbar(label='Height (m)')
-        #         plt.title('Synthetic Height Map Visualization')
-        #         plt.xlabel('X Coordinate')
-        #         plt.ylabel('Y Coordinate')
-        #         plt.show()
+        plt.ion()
+        if self.first_run:
+            self.plotter_counter += 1
+            if self.plotter_counter % 5 == 0:
+                #plt.close()  # Close the figure to avoid unnecessary memory usage
+                # plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
+                # plt.colorbar(label='Height (m)')
+                # plt.title('Synthetic Height Map Visualization')
+                # plt.xlabel('X Coordinate')
+                # plt.ylabel('Y Coordinate')
+                # plt.show()
+                plt.clf()  # Clear the current figure's content
+                plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
+                plt.colorbar(label='Height (m)')
+                plt.title('Synthetic Height Map Visualization')
+                plt.xlabel('X Coordinate')
+                plt.ylabel('Y Coordinate')
+                plt.draw()  # Update the plot
+                plt.pause(0.0001)  # Short pause to allow the plot to be updated
+                
+                #time.sleep(0.5)  # Pause a bit so the update isn't too fast to see
         # Increment the call counter
 
         if self.k > 1:
@@ -85,6 +98,14 @@ class SoloLocalHeightMaps:
         for i in range(self.height_map.shape[0]):  # For each row
             for j in range(self.height_map.shape[1]):  # For each column
                 self.height_map[i, j] = current_height  # Set height
+        plt.clf()  # Clear the current figure's content
+        plt.imshow(self.height_map, cmap='viridis', origin='lower', interpolation='none')
+        plt.colorbar(label='Height (m)')
+        plt.title('Synthetic Height Map Visualization')
+        plt.xlabel('X Coordinate')
+        plt.ylabel('Y Coordinate')
+        plt.draw()  # Update the plot
+        plt.pause(0.0001)  # Short pause to allow the plot to be updated
         return self.height_map.flatten()
     #flatbed()
                     

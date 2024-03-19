@@ -82,22 +82,22 @@ class SoloRLDevice:
          self.device, self.logger, _qc = initialize(self.params, self.policy._Nobs, self.params.q_init, np.zeros((12,)), 100000)
 
     def height_map(self):
-        heights = self.solo_local_height_map.flatbed()
+        #heights = self.solo_local_height_map.flatbed()
         #Joystick.computeCode()
         if self.joystick.joystick_code == 1:
-            print("flatbed")
+            #print("flatbed")
             heights = self.solo_local_height_map.flatbed()
         elif self.joystick.joystick_code == 2:
             heights = self.solo_local_height_map.trench()
-            print("TRENCH")
+            #print("TRENCH")
         elif self.joystick.joystick_code == 3:
             heights = self.solo_local_height_map.pre_trench()
-            print("pre_trench")
+            #print("pre_trench")
         elif self.joystick.joystick_code == 4:
             heights = self.solo_local_height_map.starting_descent()
         else:
             heights = self.solo_local_height_map.flatbed()
-        heights = self.device.terrain_height(self.measure_points, heights)
+        heights_ = self.device.terrain_height(self.measure_points, heights)
         return self.device.dummyPos[2] - 0.215 - heights
     
     #OG WORKING FUNCTION
