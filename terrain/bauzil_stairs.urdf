@@ -2,8 +2,8 @@
   <link concave="yes" name="baseLink">
     <inertial>
       <origin rpy="0 0 0" xyz="0 0 0"/>
-       <mass value="0.0"/>
-       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+      <mass value="0.0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
     </inertial>
     <visual>
       <origin rpy="0 0 -0.75" xyz="-1.2 -1.5 -0.01"/>
@@ -11,7 +11,7 @@
         <mesh filename="bauzil_stairs.stl" scale="0.7 1.0 0.5"/>
       </geometry>
       <material name="red">
-        <color rgba="1 0 0 1"/>
+        <color rgba="0.63 0.32 0.255 1"/>
       </material>
     </visual>
     <collision concave="yes">
@@ -20,5 +20,36 @@
         <mesh filename="bauzil_stairs.stl" scale="0.7 1.0 0.5"/>
       </geometry>
     </collision>
+    <!-- Adding visual element for the Block -->
+    <visual>
+      <origin rpy="0 0 -0.05" xyz="1.0 0.425 0"/> <!-- Adjust the xyz and rpy values as needed -->
+      <geometry>
+        <mesh filename="Block.stl" scale="0.0015 0.0005 0.00075"/> <!-- Adjust scale as needed -->
+      </geometry>
+      <!-- Optional: Define the Block's material here, similar to the stairs' red material -->
+    </visual>
+    <!-- Adding collision element for the Block -->
+    <collision>
+      <origin rpy="0 0 -0.05" xyz="1.0 0.425 0"/> <!-- Adjust the xyz and rpy values as needed -->
+      <geometry>
+        <mesh filename="Block.stl" scale="0.0015 0.0005 0.00075"/> <!-- Adjust scale as needed -->
+      </geometry>
+    </collision>
+        <!-- Adding visual element for the Block -->
+    <visual>
+      <origin rpy="0 0 0" xyz="1.0 -0.425 0"/> <!-- Adjust the xyz and rpy values as needed -->
+      <geometry>
+        <mesh filename="Block.stl" scale="0.0015 0.0005 0.00075"/> <!-- Adjust scale as needed -->
+      </geometry>
+      <!-- Optional: Define the Block's material here, similar to the stairs' red material -->
+    </visual>
+    <!-- Adding collision element for the Block -->
+    <collision>
+      <origin rpy="0 0 0" xyz="1.0 -0.425 0"/> <!-- Adjust the xyz and rpy values as needed -->
+      <geometry>
+        <mesh filename="Block.stl" scale="0.0015 0.0005 0.00075"/> <!-- Adjust scale as needed -->
+      </geometry>
+    </collision>
   </link>
 </robot>
+

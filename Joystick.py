@@ -28,10 +28,10 @@ class Joystick:
         self.vY = 0.
         self.vYaw = 0.
         self.vZ = 0.
-        self.VxScale = 0.8
-        self.VyScale = 0.65
-        self.vYawScale = 1.
-        self.vZScale = 0.3
+        self.VxScale = 1.2
+        self.VyScale = 1.2
+        self.vYawScale = 1.0
+        self.vZScale = 0.1
         # self.VxScale = 0.15
         # self.VyScale = 0.225
         # self.vYawScale = 0.5

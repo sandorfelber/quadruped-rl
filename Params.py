@@ -10,7 +10,7 @@ class RLParams():
         self.PYB_GUI = True # Enable PyBullet GUI if simulation is True
         self.LOGGING = False # Save the logs of the experiments if True
         self.PLOTTING = True # Save the logs of the experiments if True
-        self.max_steps = 45000
+        self.max_steps = 65000
 
         self.USE_JOYSTICK = True  # Control the robot with a joystick
         self.USE_PREDEFINED = False  # Use a predefined velocity profile

@@ -37,7 +37,7 @@ class SoloRLDevice:
         self.pyb_global_height_map = np.loadtxt("height_map.txt", delimiter=",")
         self.pyb_sampling_bounds = np.loadtxt("sampling_bounds.txt", delimiter=",")
         
-        height_map_reshaped = self.pyb_global_height_map.reshape(387, 387)  # Reshape to 21 rows x 33 columns
+        #height_map_reshaped = self.pyb_global_height_map.reshape(387, 387)  # Reshape to 21 rows x 33 columns
 
         # Visualize the reshaped data
         # plt.imshow(height_map_reshaped, cmap='viridis', origin='lower', interpolation='none')
