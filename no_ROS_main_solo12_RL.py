@@ -87,18 +87,24 @@ class SoloRLDevice:
         if self.joystick.joystick_code == 1:
             #print("flatbed")
             heights = self.solo_local_height_map.flatbed()
+            self.joystick.VxScale = 0.55
+            self.joystick.VyScale = 0.55
         elif self.joystick.joystick_code == 2:
             heights = self.solo_local_height_map.trench()
             #print("TRENCH")
         elif self.joystick.joystick_code == 3:
             heights = self.solo_local_height_map.pre_trench()
+            self.joystick.VxScale = 1.3
+            self.joystick.VyScale = 1.3
             #print("pre_trench")
         elif self.joystick.joystick_code == 4:
             heights = self.solo_local_height_map.starting_ascent()
         else:
             heights = self.solo_local_height_map.flatbed()
         #heights = self.device.terrain_height(self.measure_points, heights)
-        return self.device.dummyPos[2] - 0.215 - heights
+            #print(self.device.dummyPos[2])
+            
+        return self.device.dummyPos[2] - 0.215 - heights if self.params.SIMULATION else 0.18 - 0.18 - heights
     
     #OG WORKING FUNCTION
     # def height_map(self):
