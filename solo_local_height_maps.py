@@ -33,7 +33,7 @@ class SoloLocalHeightMaps:
         
         #length = 0.8
         #cell_length = length / self.height_map.shape[0]
-        side_rows = 6
+        side_rows = 5
         # Number of iterations to complete the transition
         total_shifts = self.height_map.shape[0] - 1
         # Determine how much of the map the obstacles should occupy after 33 iterations
@@ -116,7 +116,7 @@ class SoloLocalHeightMaps:
             #flatbed()
                     
     def starting_ascent(self):
-        max_height = 0.25  # Maximum height at the top edge
+        max_height = 0.2  # Maximum height at the top edge
         length = 0.8  # Total length in meters
         # Calculate the physical size of each cell in the length direction
         cell_length = length / self.height_map.shape[0]

@@ -25,7 +25,7 @@ class ControllerRL():
             - q_init (np.array(12)) : initial joint position
         """
         # Control gains
-        self.P =  np.array([3.0, 3.0, 3.0]*4)
+        self.P =  np.array([3.0, 3.0, 4.0]*4)
         self.D = np.array([0.2, 0.2, 0.2]*4)
         # self.P =  np.array([0.0, 0.0, 0.0]*4)
         # self.D = np.array([0., 0., 0.]*4)
@@ -63,7 +63,7 @@ class ControllerRL():
         self.scale_height_map = 5
         
         self.clip_observations = 100.
-        self.clip_actions = 6.
+        self.clip_actions = 7.5
         self.clip_height_map = 1
 
         # Load model

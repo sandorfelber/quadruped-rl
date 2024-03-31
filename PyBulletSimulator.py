@@ -771,8 +771,8 @@ class PyBulletSimulator():
         coords = np.ravel_multi_index((points[..., 1], points[..., 0]), self.pyb_sim.sampling_bounds[2:4], mode="clip")
         #print(coords)
        # UNCOMMENT TO SHOW MEASURED POINTS
-        #self.debugPoints = 1
-        #end = datetime.now()
+        # self.debugPoints = 1
+        # #   end = datetime.now()
         # if self.debugPoints >= 0:
         #     #print("ASDA")
         #     pyb.removeUserDebugItem(self.debugPoints)

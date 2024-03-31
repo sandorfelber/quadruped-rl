@@ -87,8 +87,8 @@ class SoloRLDevice:
         if self.joystick.joystick_code == 1:
             #print("flatbed")
             heights = self.solo_local_height_map.flatbed()
-            self.joystick.VxScale = 0.55
-            self.joystick.VyScale = 0.55
+            self.joystick.VxScale = 0.45
+            self.joystick.VyScale = 0.5
         elif self.joystick.joystick_code == 2:
             heights = self.solo_local_height_map.trench()
             #print("TRENCH")
@@ -102,9 +102,10 @@ class SoloRLDevice:
         else:
             heights = self.solo_local_height_map.flatbed()
         #heights = self.device.terrain_height(self.measure_points, heights)
+        #print(0.2 - 0.18 - heights)
             #print(self.device.dummyPos[2])
             
-        return self.device.dummyPos[2] - 0.215 - heights if self.params.SIMULATION else 0.18 - 0.18 - heights
+        return self.device.dummyPos[2] - 0.215 - heights if self.params.SIMULATION else 0.215 - 0.19 - heights
     
     #OG WORKING FUNCTION
     # def height_map(self):
@@ -195,7 +196,7 @@ class SoloRLDevice:
         return np.array([vx, vy, wz])
     
     def parse_file_loc_policy():
-        file_loc_policy = "./tmp_checkpoints/policy_Feb25_21_38_13_ROBUST_TUNNELS.pt"
+        file_loc_policy = "./tmp_checkpoints/policy_Mar22_15000.pt"
         #file_loc_policy = "/home/thomas_cbrs/Desktop/quadruped-rl/tmp_checkpoints/policy_Feb26.pt"
         return file_loc_policy
     
@@ -379,10 +380,10 @@ def main():
     #              0., -0.9  , 1.64 ])
         
     q_init = np.array([
-                0.3, 0.9, -1.64,
-                -0.3, 0.9, -1.64,
-                0.3, -0.9 , 1.64,
-                -0.3, -0.9  , 1.64 ])
+                0.4, 0.9, -1.64,
+                -0.4, 0.9, -1.64,
+                0.4, -0.9 , 1.64,
+                -0.4, -0.9  , 1.64 ])
     params.q_init = q_init
     
     policy = ControllerRL(SoloRLDevice.parse_file_loc_policy(), q_init, params.measure_height)
