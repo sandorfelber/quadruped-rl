@@ -63,7 +63,8 @@ class ControllerRL():
         self.scale_height_map = 5
         
         self.clip_observations = 100.
-        self.clip_actions = 7.5
+        #self.clip_actions = 7.5
+        self.clip_actions = 1.2
         self.clip_height_map = 1
 
         # Load model

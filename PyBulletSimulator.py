@@ -5,7 +5,8 @@ import time as time
 import sys
 import pinocchio as pin
 from Paths import SOLO_URDF
-
+import rospy
+from geometry_msgs.msg import TransformStamped
 
 class pybullet_simulator:
     """Wrapper for the PyBullet simulator to initialize the simulation, interact with it

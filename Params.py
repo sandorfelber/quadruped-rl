@@ -6,8 +6,8 @@ import numpy as np
 class RLParams():
     def __init__(self):
         # Replay parameters
-        self.SIMULATION = False  # Run the replay in simulation if True
-        self.PYB_GUI = False # Enable PyBullet GUI if simulation is True
+        self.SIMULATION = True  # Run the replay in simulation if True
+        self.PYB_GUI = True # Enable PyBullet GUI if simulation is True
         self.LOGGING = False # Save the logs of the experiments if True
         self.PLOTTING = True # Save the logs of the experiments if True
         self.max_steps = 99000

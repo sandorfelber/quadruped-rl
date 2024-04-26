@@ -32,11 +32,15 @@ class SoloRLDevice:
             x, y = np.meshgrid(params.measure_x, params.measure_y, indexing="ij")
             self.measure_points = np.stack((x.flatten(), y.flatten()), axis=-1)
         self._pre_init()
-        self.listener()
+        # self.listener()
         #LOAD FROM LAST PYBULLET SAVE
         self.pyb_global_height_map = np.loadtxt("height_map.txt", delimiter=",")
         self.pyb_sampling_bounds = np.loadtxt("sampling_bounds.txt", delimiter=",")
-        
+
+        self.vicon_positions = np.array([0.0,0,0.22])
+        self.vicon_quaternion = np.array([0,0,0,1])
+        self.vicon_attitude_euler = np.array([0,0,0])
+
         height_map_reshaped = self.pyb_global_height_map.reshape(387, 387)  # Reshape to 21 rows x 33 columns
 
         # Visualize the reshaped data
@@ -83,21 +87,32 @@ class SoloRLDevice:
 
     def height_map(self):
         heights = self.solo_local_height_map.flatbed()
-        #Joystick.computeCode()
-        if self.joystick.joystick_code == 1:
-            print("flatbed")
-            heights = self.solo_local_height_map.flatbed()
-        elif self.joystick.joystick_code == 2:
-            heights = self.solo_local_height_map.trench()
-            print("TRENCH")
-        elif self.joystick.joystick_code == 3:
-            heights = self.solo_local_height_map.pre_trench()
-            print("pre_trench")
-        elif self.joystick.joystick_code == 4:
-            heights = self.solo_local_height_map.starting_descent()
-        else:
-            heights = self.solo_local_height_map.flatbed()
-        heights_ = self.device.terrain_height(self.measure_points, heights)
+        # #Joystick.computeCode()
+        # if self.joystick.joystick_code == 1:
+        #     print("flatbed")
+        #     heights = self.solo_local_height_map.flatbed()
+        # elif self.joystick.joystick_code == 2:
+        #     heights = self.solo_local_height_map.trench()
+        #     print("TRENCH")
+        # elif self.joystick.joystick_code == 3:
+        #     heights = self.solo_local_height_map.pre_trench()
+        #     print("pre_trench")
+        # elif self.joystick.joystick_code == 4:
+        #     heights = self.solo_local_height_map.starting_descent()
+        # else:
+        #     heights = self.solo_local_height_map.flatbed()
+        # heights = self.device.terrain_height(self.measure_points, heights)
+        heights = self.terrain_height_real_robot(self.measure_points, heights)
+        plotted_heights = heights.reshape(33,21)
+        plt.clf()  # Clear the current figure's content
+        plt.imshow(plotted_heights, cmap='viridis', origin='lower', interpolation='none')
+        plt.colorbar(label='Height (m)')
+        plt.title('Synthetic Height Map Visualization')
+        plt.xlabel('X Coordinate')
+        plt.ylabel('Y Coordinate')
+        plt.draw()  # Update the plot
+        plt.pause(0.0001)  # Short pause to allow the plot to be updated
+
         return heights #- 0.215 #self.device.dummyPos[2] - 0.215 - heights
     
     #OG WORKING FUNCTION
@@ -153,7 +168,7 @@ class SoloRLDevice:
             a numpy array with the same shape as 'points' (except the last dimension is removed)
         """
         #euler_attitude = 0
-        if robot_frame:
+        if True:
             points = np.concatenate((points, np.zeros_like(points[..., 0:1])), axis=-1)[..., None]
             points = pin.rpy.rpyToMatrix(np.array([0, 0, self.vicon_attitude_euler[2]]))[None] @ points
             points = (points.squeeze(-1) + self.vicon_positions)[..., :2] #device.dummyPos)[..., :2]
@@ -164,8 +179,7 @@ class SoloRLDevice:
         points = (points - np.array(self.device.pyb_sim.sampling_bounds[:2])) / self.device.pyb_sim.sampling_bounds[4]
         points = points.astype(int)
 
-        coords = np.ravel_multi_index((points[..., 1], points[..., 0]), self.device.pyb_sim.sampling_bounds[2:4], mode="clip")
-        
+        coords = np.ravel_multi_index((points[..., 1], points[..., 0]), self.device.pyb_sim.sampling_bounds[2:4], mode="clip")   
         return self.pyb_global_height_map[coords]
 
     def damping_and_shutdown(self):     
@@ -264,12 +278,27 @@ class SoloRLDevice:
         baseVel = np.array(device.baseVel[0]) if params.SIMULATION else np.zeros(3)
         # import IPython
         # IPython.embed()
+
+        #perception with vicon
+        vicon_data = rospy.wait_for_message('/vicon/solo/solo', TransformStamped, timeout=5)
+        vicon_data = rospy.wait_for_message('/vicon/solo/solo', TransformStamped, timeout=5)
+        self.vicon_positions = np.array([vicon_data.transform.translation.x,vicon_data.transform.translation.y,vicon_data.transform.translation.z])
+        self.vicon_quaternion = np.array([vicon_data.transform.rotation.x,vicon_data.transform.rotation.y,vicon_data.transform.rotation.z,vicon_data.transform.rotation.w])
+        self.vicon_attitude_euler = tf.transformations.euler_from_quaternion(self.vicon_quaternion)
+
         policy.update_observation(baseVel,
                                   device.joints.positions.reshape((-1, 1)),
                                   device.joints.velocities.reshape((-1, 1)),
-                                  device.imu.attitude_quaternion.reshape((-1, 1)),
+                                  self.vicon_quaternion.reshape((-1, 1)),
                                   device.imu.gyroscope.reshape((-1, 1)),
                                   self.height_map())
+
+        # policy.update_observation(baseVel,
+        #                           device.joints.positions.reshape((-1, 1)),
+        #                           device.joints.velocities.reshape((-1, 1)),
+        #                           device.imu.attitude_quaternion.reshape((-1, 1)),
+        #                           device.imu.gyroscope.reshape((-1, 1)),
+        #                           self.height_map())
         policy.forward()
         #policy.forward()
         # Set desired quantities for the actuators
@@ -327,35 +356,36 @@ class SoloRLDevice:
 
         self.damping_and_shutdown()
 
-    def quaternion_callback(self, msg):
-        # Extract the position (translation)
-        position = np.array([
-        msg.transform.translation.x,
-        msg.transform.translation.y,
-        msg.transform.translation.z
-        ])
+    # def quaternion_callback(self, msg):
+    #     # Extract the position (translation)
+    #     position = np.array([
+    #     msg.transform.translation.x,
+    #     msg.transform.translation.y,
+    #     msg.transform.translation.z
+    #     ])
 
-        # Assuming the quaternion is part of a geometry_msgs/TransformStamped message
-        quaternion = (
-            msg.transform.rotation.x,
-            msg.transform.rotation.y,
-            msg.transform.rotation.z,
-            msg.transform.rotation.w
-        )
-        # X, Y, Z positions
-        self.vicon_positions = position
-        self.vicon_positions = [0, 0, 0.22]
-        #print(self.vicon_positions)
-        # Update the roll (x), pitch (y), and yaw (z) angles
-        self.vicon_attitude_euler = tf.transformations.euler_from_quaternion(quaternion)  # Convert to Euler angles
+    #     # Assuming the quaternion is part of a geometry_msgs/TransformStamped message
+    #     quaternion = np.array([
+    #         msg.transform.rotation.x,
+    #         msg.transform.rotation.y,
+    #         msg.transform.rotation.z,
+    #         msg.transform.rotation.w
+    #     ])
+    #     # X, Y, Z positions
+    #     self.vicon_positions = position
+    #     # self.vicon_positions = [0, 0, 0.22] 
+
+    #     #print(self.vicon_positions)
+    #     # Update the roll (x), pitch (y), and yaw (z) angles
+    #     self.vicon_quaternion = quaternion
+    #     # self.vicon_quaternion = [0,0,0,1]
+    #     self.vicon_attitude_euler = tf.transformations.euler_from_quaternion(quaternion)  # Convert to Euler angles
         
 
-    def listener(self):
-        if not self.params.SIMULATION or self.params.SIMULATION:
-            rospy.init_node('quaternion_listener', anonymous=True)  # Initialize the ROS node
-            rospy.Subscriber("/vicon/Solo/Solo", TransformStamped, self.quaternion_callback)  # Subscribe to the quaternion topic
-
-            
+    # def listener(self):
+    #     if not self.params.SIMULATION or self.params.SIMULATION:
+    #         rospy.init_node('quaternion_listener', anonymous=True)  # Initialize the ROS node
+    #         rospy.Subscriber("/vicon/Solo/Solo", TransformStamped, self.quaternion_callback)  # Subscribe to the quaternion topic
 
 def main():
     """
@@ -398,7 +428,6 @@ if __name__ == "__main__":
         profiler.enable()
 
     main()
-    rospy.spin()
 
     if PROFILER:
         profiler.disable()
