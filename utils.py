@@ -6,7 +6,6 @@ import pybullet as p
 #import matplotlib.pyplot as plt
 import os
 
-
 def get_input():
     keystrk = input()
     # thread doesn't continue until key is pressed

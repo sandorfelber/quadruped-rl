@@ -22,7 +22,7 @@
     </collision>
     <!-- Adding visual element for the Block -->
     <visual>
-      <origin rpy="0 0 -0.05" xyz="1.0 0.425 0"/> <!-- Adjust the xyz and rpy values as needed -->
+      <origin rpy="0 0 -0.05" xyz="1.0 0.25 0"/> <!-- Adjust the xyz and rpy values as needed -->
       <geometry>
         <mesh filename="Block.stl" scale="0.0015 0.0005 0.00075"/> <!-- Adjust scale as needed -->
       </geometry>
@@ -30,14 +30,14 @@
     </visual>
     <!-- Adding collision element for the Block -->
     <collision>
-      <origin rpy="0 0 -0.05" xyz="1.0 0.425 0"/> <!-- Adjust the xyz and rpy values as needed -->
+      <origin rpy="0 0 -0.05" xyz="1.0 0.25 0"/> <!-- Adjust the xyz and rpy values as needed -->
       <geometry>
         <mesh filename="Block.stl" scale="0.0015 0.0005 0.00075"/> <!-- Adjust scale as needed -->
       </geometry>
     </collision>
         <!-- Adding visual element for the Block -->
     <visual>
-      <origin rpy="0 0 0" xyz="1.0 -0.425 0"/> <!-- Adjust the xyz and rpy values as needed -->
+      <origin rpy="0 0 0" xyz="1.0 -0.75 0"/> <!-- Adjust the xyz and rpy values as needed -->
       <geometry>
         <mesh filename="Block.stl" scale="0.0015 0.0005 0.00075"/> <!-- Adjust scale as needed -->
       </geometry>
@@ -45,7 +45,7 @@
     </visual>
     <!-- Adding collision element for the Block -->
     <collision>
-      <origin rpy="0 0 0" xyz="1.0 -0.425 0"/> <!-- Adjust the xyz and rpy values as needed -->
+      <origin rpy="0 0 0" xyz="1.0 -0.75 0"/> <!-- Adjust the xyz and rpy values as needed -->
       <geometry>
         <mesh filename="Block.stl" scale="0.0015 0.0005 0.00075"/> <!-- Adjust scale as needed -->
       </geometry>

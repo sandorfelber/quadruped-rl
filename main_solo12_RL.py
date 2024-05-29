@@ -16,6 +16,15 @@ import rospy
 from geometry_msgs.msg import TransformStamped
 import tf.transformations
 import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation
+
+
+#vicon interface
+import pyvicon_datastream as pv
+from pyvicon_datastream import tools
+
+VICON_TRACKER_IP = "129.215.96.94"
+OBJECT_NAME = "solo"
 
 PROFILER = False
 
@@ -36,12 +45,24 @@ class SoloRLDevice:
         #LOAD FROM LAST PYBULLET SAVE
         self.pyb_global_height_map = np.loadtxt("height_map.txt", delimiter=",")
         self.pyb_sampling_bounds = np.loadtxt("sampling_bounds.txt", delimiter=",")
+        self.sampling_bounds = [0, 0, 1, 1, 1]
+        self.pyb_sampling_bounds = self.sampling_bounds
 
         self.vicon_positions = np.array([0.0,0,0.22])
         self.vicon_quaternion = np.array([0,0,0,1])
         self.vicon_attitude_euler = np.array([0,0,0])
 
         height_map_reshaped = self.pyb_global_height_map.reshape(387, 387)  # Reshape to 21 rows x 33 columns
+
+        self.vicon_client = pv.PyViconDatastream() #establish vicon client
+        ret = self.vicon_client.connect(VICON_TRACKER_IP)
+
+        if ret != pv.Result.Success:
+            print(f"Connection to {VICON_TRACKER_IP} failed")
+        else:
+            print(f"Connection to {VICON_TRACKER_IP} successful")
+
+        self.mytracker = tools.ObjectTracker(VICON_TRACKER_IP)
 
         # Visualize the reshaped data
         # plt.imshow(height_map_reshaped, cmap='viridis', origin='lower', interpolation='none')
@@ -87,7 +108,7 @@ class SoloRLDevice:
 
     def height_map(self):
         heights = self.solo_local_height_map.flatbed()
-        # #Joystick.computeCode()
+        # # #Joystick.computeCode()
         # if self.joystick.joystick_code == 1:
         #     print("flatbed")
         #     heights = self.solo_local_height_map.flatbed()
@@ -101,8 +122,10 @@ class SoloRLDevice:
         #     heights = self.solo_local_height_map.starting_descent()
         # else:
         #     heights = self.solo_local_height_map.flatbed()
-        # heights = self.device.terrain_height(self.measure_points, heights)
+        #heights = self.device.terrain_height(self.measure_points, heights)
         heights = self.terrain_height_real_robot(self.measure_points, heights)
+        
+        #######Print of local terrain########
         plotted_heights = heights.reshape(33,21)
         plt.clf()  # Clear the current figure's content
         plt.imshow(plotted_heights, cmap='viridis', origin='lower', interpolation='none')
@@ -111,9 +134,10 @@ class SoloRLDevice:
         plt.xlabel('X Coordinate')
         plt.ylabel('Y Coordinate')
         plt.draw()  # Update the plot
-        plt.pause(0.0001)  # Short pause to allow the plot to be updated
-
+        plt.pause(1)  # Short pause to allow the plot to be updated
+        #return 0.215 - 0.19 - heights
         return heights #- 0.215 #self.device.dummyPos[2] - 0.215 - heights
+    
     
     #OG WORKING FUNCTION
     # def height_map(self):
@@ -168,18 +192,38 @@ class SoloRLDevice:
             a numpy array with the same shape as 'points' (except the last dimension is removed)
         """
         #euler_attitude = 0
-        if True:
-            points = np.concatenate((points, np.zeros_like(points[..., 0:1])), axis=-1)[..., None]
-            points = pin.rpy.rpyToMatrix(np.array([0, 0, self.vicon_attitude_euler[2]]))[None] @ points
-            points = (points.squeeze(-1) + self.vicon_positions)[..., :2] #device.dummyPos)[..., :2]
+        points = np.concatenate((points, np.zeros_like(points[..., 0:1])), axis=-1)[..., None]
+        points = pin.rpy.rpyToMatrix(np.array([0, 0, self.vicon_attitude_euler[2]]))[None] @ points
+        points = (points.squeeze(-1) + self.vicon_positions)[..., :2] #device.dummyPos)[..., :2]
 
         _c = points.copy()
         #print(self.device.pyb_sim.sampling_bounds[:2])
         #exit(0)
-        points = (points - np.array(self.device.pyb_sim.sampling_bounds[:2])) / self.device.pyb_sim.sampling_bounds[4]
-        points = points.astype(int)
+        if self.params.SIMULATION == True:
+            points = (points - np.array(self.device.pyb_sim.sampling_bounds[:2])) / self.device.pyb_sim.sampling_bounds[4]
+            points = points.astype(int)
 
-        coords = np.ravel_multi_index((points[..., 1], points[..., 0]), self.device.pyb_sim.sampling_bounds[2:4], mode="clip")   
+            coords = np.ravel_multi_index((points[..., 1], points[..., 0]), self.device.pyb_sim.sampling_bounds[2:4], mode="clip")   
+
+        elif self.params.SIMULATION == False:
+            #################################################
+            # self.height_map = np.zeros((1,)) # np.array(heightfieldData).reshape(numHeightfieldRows, numHeightfieldColumns) # not sure this is the correct way
+            # self.sampling_bounds = [0, 0, 1, 1, 1]
+            # sampling_interval=self.params.custom_sampling_interval
+            
+            # self.sampling_bounds = [minx, miny, *self.height_map.shape[0:2], sampling_interval]
+            ###############################################
+            points = (points - np.array(self.sampling_bounds[:2])) / self.sampling_bounds[4]
+            # points = points.astype(int) 
+            points = np.floor(points).astype(int)
+            #print("points")
+            #print(points)
+            # print("sampling bounds")
+            # print(self.pyb_sampling_bounds[2:4])
+
+            coords = np.ravel_multi_index((points[..., 1], points[..., 0]), self.pyb_sampling_bounds[2:4], mode="clip")   
+        print("points")
+        print(points)
         return self.pyb_global_height_map[coords]
 
     def damping_and_shutdown(self):     
@@ -203,7 +247,7 @@ class SoloRLDevice:
         return np.array([vx, vy, wz])
     
     def parse_file_loc_policy():
-        file_loc_policy = "./tmp_checkpoints/policy_Feb25_21_38_13_ROBUST_TUNNELS.pt"
+        file_loc_policy = "./tmp_checkpoints/policy_May27.pt" #policy_Feb25_21_38_13_ROBUST_TUNNELS.pt"
         #file_loc_policy = "/home/thomas_cbrs/Desktop/quadruped-rl/tmp_checkpoints/policy_Feb26.pt"
         return file_loc_policy
     
@@ -279,12 +323,22 @@ class SoloRLDevice:
         # import IPython
         # IPython.embed()
 
-        #perception with vicon
-        vicon_data = rospy.wait_for_message('/vicon/solo/solo', TransformStamped, timeout=5)
-        vicon_data = rospy.wait_for_message('/vicon/solo/solo', TransformStamped, timeout=5)
-        self.vicon_positions = np.array([vicon_data.transform.translation.x,vicon_data.transform.translation.y,vicon_data.transform.translation.z])
-        self.vicon_quaternion = np.array([vicon_data.transform.rotation.x,vicon_data.transform.rotation.y,vicon_data.transform.rotation.z,vicon_data.transform.rotation.w])
-        self.vicon_attitude_euler = tf.transformations.euler_from_quaternion(self.vicon_quaternion)
+        # #perception with vicon
+        latency, frameno,pose = self.mytracker.get_position(OBJECT_NAME)
+        #print(pose)
+        self.vicon_positions = -np.array(pose[0][2:5])/1000.0
+        #np.array(pose[0][2:5])/1000.0-np.array([[2790.6913887384217, 333.6268952114399, 497.5754439777135]])/1000.0
+        self.vicon_attitude_euler = -np.array(pose[0][5:])
+        # print(self.vicon_positions)
+        # print(self.vicon_attitude_euler)
+        # Create a rotation object from Euler angles specifying axes of rotation
+        rot = Rotation.from_euler('xyz', self.vicon_attitude_euler, degrees=False)
+        #   Convert to quaternions and print
+        rot_quat = rot.as_quat()
+        self.vicon_quaternion = np.array(rot_quat)
+        # self.vicon_positions = np.array([vicon_data.transform.translation.x,vicon_data.transform.translation.y,vicon_data.transform.translation.z])
+        # self.vicon_quaternion = np.array([vicon_data.transform.rotation.x,vicon_data.transform.rotation.y,vicon_data.transform.rotation.z,vicon_data.transform.rotation.w])
+        # self.vicon_attitude_euler = tf.transformations.euler_from_quaternion(self.vicon_quaternion)
 
         policy.update_observation(baseVel,
                                   device.joints.positions.reshape((-1, 1)),
