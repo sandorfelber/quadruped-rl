@@ -5,277 +5,270 @@ import numpy as np
 from Params import RLParams
 from utils import *
 import time
-import pinocchio as pin
-
 #from cpuMLP import PolicyMLP3, StateEstMLP2
-from numpy_mlp import MLP2
-from cpuMLP import Interface
+# from numpy_mlp import MLP2
+# from cpuMLP import Interface
+from ControllerRL import ControllerRL
 
 from Joystick import Joystick
 
-params = RLParams()
+PROFILER = False
+
 np.set_printoptions(precision=3, linewidth=400)
 
-class RLController():
-    def __init__(self, weight_path, use_state_est=False):
-        """
-        Args:
-            params: store control parameters
-        """
-        # Control gains
-        self.P =  np.array([3.0, 3.0, 3.0]*4) 
-        self.D = np.array([0.2, 0.2, 0.2]*4)
+class SoloRLDevice:
 
-        # Policy definition and loading parameters and scaling
-        iteration = weight_path.rsplit('/', 1)[1].split('_', 1)[1].rsplit('.', 1)[0]
-        weight_dir = weight_path.rsplit('/', 1)[0] + '/'
+    def __init__(self, policy: ControllerRL, params: RLParams, run_name: str):
+        self.policy = policy
+        self.params = params
+        self.run_name = run_name
+        if params.measure_height:
+            x, y = np.meshgrid(params.measure_x, params.measure_y, indexing="ij")
+            self.measure_points = np.stack((x.flatten(), y.flatten()), axis=-1)
+        self._pre_init()
 
-        #self.policy = PolicyMLP3()
-        #self.policy.load(weight_path)
-        self.policy = MLP2(132, 12, [256,128,32])
-        self.policy.load_state_dict(np.load(weight_path, allow_pickle=True).item())
+    def _pre_init(self):
+        if not self.params.SIMULATION:
+            # this must be called once before connecting to the robot
+            # because the first call to PyTorch takes too much time
+            # (causes desync with the robot)
+            self.policy.update_observation(np.zeros(3),
+                                np.zeros((12,1)),
+                                np.zeros((12,1)),
+                                np.zeros((4,1)),
+                                np.zeros((3,1)))
+            self.policy.forward()
 
-        self.obs_mean  = np.loadtxt(weight_dir + "/mean" + str(iteration) + ".csv",dtype=np.float32)
-        self.obs_var = np.loadtxt(weight_dir + "/var" + str(iteration) + ".csv",dtype=np.float32)
+        params = self.params
+        # Define joystick
+        if params.USE_JOYSTICK:
+            self.joystick = Joystick()
+            self.joystick.update_v_ref()
 
-        # state estimator if neededp
-        #self.state_estimator = StateEstMLP2()
-        #self.state_estimator.load('./checkpoints/state_estimation/state_estimator.txt')
+        if params.USE_PREDEFINED:
+            params.USE_JOYSTICK = False
+            self.v_ref = 0.0  # Starting reference velocity
+            self.alpha_v_ref = 0.03
 
-        # non symmetric state est
-        #self.state_estimator = MLP2(123, 11, [256,128])
-        #self.state_estimator.load_state_dict(np.load('./tmp_checkpoints/state_estimation/state_estimator.npy', allow_pickle=True).item())
+        self.decimation = int(params.control_dt/params.dt)
+        self.k = 0
 
-        # symmetric state est
-        self.state_estimator = MLP2(123, 3, [256,128])
-        self.state_estimator.load_state_dict(np.load('./tmp_checkpoints/state_estimation/symmetric_state_estimator.npy', allow_pickle=True).item())
+    def init_robot_and_wait_floor(self):
+         self.device, self.logger, _qc = initialize(self.params, self.policy._Nobs, self.params.q_init, np.zeros((12,)), 100000)
 
-        # History Buffers
-        self.num_history_stack = 6
-        self.q_pos_error_hist = np.zeros((self.num_history_stack, 12))
-        self.qd_hist = np.zeros((self.num_history_stack, 12))
-        self.previous_action = params.q_init.copy()
-        self.preprevious_action = params.q_init.copy()
+    # def height_map(self):
+    #     if not self.params.SIMULATION:
+    #         heights = self.device.terrain_height(self.measure_points)
+    #     else:
+    #         heights = np.zeros(self.measure_points.shape[0]) # not implemented on real robot
+    #     return self.device.dummyPos[2] - 0.215 - heights
 
-        self.pTarget12 = np.zeros((12,))
+    def height_map(self):
+        if self.params.SIMULATION:
+            #heights = self.device.terrain_height(self.measure_points)
+            heights = np.zeros(self.measure_points.shape[0]) # not implemented on real robot
+            return self.device.dummyPos[2] - 0.215 - heights
+        else:
+            heights = np.zeros(self.measure_points.shape[0]) # np.zeros(self.measure_points.shape[0]) # not implemented on real robot
+        return heights #- 0.215 #np.zeros(3)[2] - 0.215 - heights
+        #return self.device.dummyPos[2] - 0.215 - heights
 
-        self.vel_command = np.array([0.,0.,0.])
+    def damping_and_shutdown(self):     
+        device = self.device
 
-        self.state_est_obs = np.zeros((123,))
-        self._obs = np.zeros((132,))
-        self._obs_normalized = np.zeros((132,))
+        # DAMPING TO GET ON THE GROUND PROGRESSIVELY *********************
+        damping(device, self.params)
 
-        self.t_0 = 0.0
-        self.t_1 = 0.0
+        # FINAL SHUTDOWN *************************************************
+        shutdown(device, self.params)
 
-    def forward(self):
-        self._obs_normalized[:] = np.clip((self._obs - self.obs_mean) / np.sqrt(self.obs_var + 1e-8), -10, 10)
-
-        self.pTarget12[:] = params.q_init + 0.3 * self.policy.forward(self._obs_normalized).clip(-np.pi, np.pi)
-
-        self.t_1 = time.time()
-        return self.pTarget12.copy()
-
-    def update_observation(self, joints_pos, joints_vel, imu_ori, imu_gyro):
-        self.t_0 = time.time()
-
-        self.update_history(joints_pos, joints_vel) 
-
-        self.state_est_obs[:] =  np.hstack([pin.rpy.rpyToMatrix(imu_ori)[2, :],
-                                            joints_pos.flatten(),
-                                            joints_vel.flatten(),
-                                            self.previous_action,
-                                            self.preprevious_action,
-                                            self.q_pos_error_hist[0],
-                                            self.qd_hist[0],
-                                            self.q_pos_error_hist[2],
-                                            self.qd_hist[2],
-                                            self.q_pos_error_hist[4],
-                                            self.qd_hist[4]])
-
-        self._obs[:] = np.hstack([pin.rpy.rpyToMatrix(imu_ori)[2, :],
-                                  self.state_estimator.forward(self.state_est_obs)[:3],
-                                  imu_gyro.flatten(),
-                                  self.vel_command,
-                                  joints_pos.flatten(),
-                                  joints_vel.flatten(),
-                                  self.previous_action,
-                                  self.preprevious_action,
-                                  self.q_pos_error_hist[0],
-                                  self.qd_hist[0],
-                                  self.q_pos_error_hist[2],
-                                  self.qd_hist[2],
-                                  self.q_pos_error_hist[4],
-                                  self.qd_hist[4]])
-
-    def update_history(self, joints_pos, joints_vel):
-        tmp = self.q_pos_error_hist.copy()
-        self.q_pos_error_hist[:-1,:] = tmp[1:,:]
-        self.q_pos_error_hist[-1,:] = self.pTarget12 - joints_pos.flatten()
-
-        tmp = self.qd_hist.copy()
-        self.qd_hist[:-1,:] = tmp[1:,:]
-        self.qd_hist[-1,:] = joints_vel.flatten()
-
-        self.preprevious_action[:] = self.previous_action.copy()
-        self.previous_action[:] = self.pTarget12.copy()
-
-    def get_observation(self):
-        return self._obs
+    def _parse_joystick_cmd(self):
+        joystick = self.joystick
+        joystick.update_v_ref()
+        vx = joystick.v_ref[0,0]
+        vx = 0 if abs(vx) < 0.3 else vx
+        wz = joystick.v_ref[-1,0]
+        wz = 0 if abs(wz) < 0.3 else wz
+        vy = joystick.v_ref[1,0] * int(self.params.enable_lateral_vel)
+        vy = 0 if abs(vy) < 0.3 else vy
+        return np.array([vx, vy, wz])
     
-    def get_computation_time(self):
-        # Computation time in us
-        return (self.t_1 - self.t_0) * 1e6
+    def parse_file_loc_policy():
+        file_loc_policy = "/home/sandor/robots_ws/legged_gym/logs/solo12/exported/policies/policy_ROBUST_ELU_Feb_15-15-44-04_03-09-164.pt"
+        return file_loc_policy
+    
+    # def _predefined_vel_cmd(self):
+    #     t_rise = 100  # rising time to max vel
+    #     t_duration = 500  # in number of iterations
+    #     if self.k < t_rise + t_duration:
+    #         v_max = 0.3 # in m/s
+    #         v_gp = np.min([v_max * (self.k / t_rise), v_max])
+    #     else:
+    #         self.alpha_v_ref = 0.1
+    #         v_gp = 0.0  # Stop the robot
+    #     self.v_ref = self.alpha_v_ref * v_gp + (1 - self.alpha_v_ref) * self.v_ref  # Low-pass filter
+    #     return np.array([self.v_ref, 0, 0]) 
 
-def control_loop():
-    """
-    Main function that calibrates the robot, get it into a default waiting position then launch
-    the main control loop once the user has pressed the Enter key
-    """
+    def _predefined_vel_cmd(self):
+        t_rise = 100  # rising time to max velocity
+        t_vel_duration = 100  # duration of max velocity
+        t_ramp_down_duration = 100  # duration of ramping down
+        t_stop = 200
+        cycle_duration = t_rise + t_vel_duration + t_ramp_down_duration + t_stop # total duration of one cycle (walking + stopping)
+        v_max = 0.0 # in m/s
+        # Restart the cycle after every 'cycle_duration' iterations
+        cycle_iteration = self.k % cycle_duration
 
-    # Load RL policy
-    #policy = RLController(weight_path='./tmp_checkpoints/sym_pose/policy-07-01-12-42-53/full_2000.npy', use_state_est= True)
-    #p_tlicy = RLController(weight_path='./tmp_checkpoints/sym_pose/policy-07-05-23-16-12/full_2000.npy', use_state_est= True)
+        if cycle_iteration < t_rise:
+            # Rising phase
+            v_gp = v_max * (cycle_iteration / t_rise)
+        elif cycle_iteration < t_rise + t_vel_duration:
+            # Constant velocity phase
+            v_gp = v_max
+        elif cycle_iteration < t_rise + t_vel_duration:
+            # Waiting phase before ramping down
+            v_gp = v_max
+        elif cycle_iteration < t_rise + t_vel_duration + t_ramp_down_duration:
+            # Ramping down phase
+            v_gp = v_max * (1 - (cycle_iteration - (t_rise + t_vel_duration)) / t_ramp_down_duration)
+        else:
+            # Stopped phase
+            self.alpha_v_ref = 0.1
+            v_gp = 0.0  # Stop the robot
 
-    #policies trained with 3vel + energy penalty
-    # symmetric policy trained with 9cm foot cl
-    #policy = RLController(weight_path='./tmp_checkpoints/sym_pose/energy/policy-07-28-00-10-01/full_2000.npy', use_state_est= True)
+        self.v_ref = self.alpha_v_ref * v_gp + (1 - self.alpha_v_ref) * self.v_ref  # Low-pass filter
+        return np.array([self.v_ref, 0, 0])
 
-    # symmetric policy trained with 6cm foot cl
-    #policy = RLController(weight_path='./tmp_checkpoints/sym_pose/energy/6cm/policy-07-29-10-59-14/full_2000.npy', use_state_est=True)
-    # policy = RLController(weight_path='./tmp_checkpoints/sym_pose/energy/6cm/policy-08-03-01-20-47/full_2000.npy', use_state_est=True)
+    
+    def _random_cmd(self):
+        vx = np.random.uniform(-0.5 , 1.5)
+        vx = 0 if abs(vx) < 0.3 else vx
+        wz = np.random.uniform(-1, 1)
+        wz = 0 if abs(wz) < 0.3 else wz
+        return np.array([vx, 0, wz])
 
-    # Run full c++ Interface
-    policy = Interface()
-    polDirName = "tmp_checkpoints/sym_pose/energy/6cm/w2/"
-    estDirName = "tmp_checkpoints/state_estimation/symmetric_state_estimator.txt"
-    policy.initialize(polDirName, estDirName, params.q_init.copy())
+    def update_vel_command(self):
+        params = self.params
 
-    # Define joystick
-    if params.USE_JOYSTICK:
-        joy = Joystick()
-        joy.update_v_ref(0, 0)
+        if params.USE_JOYSTICK:
+            self.policy.vel_command = self._parse_joystick_cmd()
+        
+        elif params.USE_PREDEFINED:
+            self.policy.vel_command = self._predefined_vel_cmd()
+        
+        elif self.k > 0 and self.k % 300 ==0:
+            self.policy.vel_command = self._random_cmd()
 
-    if params.USE_PREDEFINED:
-        params.USE_JOYSTICK = False
-        v_ref = 0.0  # Starting reference velocity
-        alpha_v_ref = 0.03
+    def run_cycle(self):
+        policy = self.policy
+        device = self.device
+        decimation = self.decimation
+        params = self.params
 
-    if params.LOGGING or params.PLOTTING:
-        from Logger import Logger
-        mini_logger = Logger(logSize=int(params.max_steps))
-
-    # INITIALIZATION ***************************************************
-    device, logger, qc = initialize(params, params.q_init, np.zeros((12,)), 100000)
-
-
-    # Init Histories **********************************************
-    device.parse_sensor_data()
-    policy.pTarget12 = params.q_init.copy()
-    policy.update_observation(device.joints.positions.reshape((-1, 1)),
-                              device.joints.velocities.reshape((-1, 1)),
-                              device.imu.attitude_euler.reshape((-1, 1)),
-                              device.imu.gyroscope.reshape((-1, 1)))
-
-    device.joints.set_position_gains(policy.P)
-    device.joints.set_velocity_gains(policy.D)
-    device.joints.set_desired_positions(policy.pTarget12)
-    device.joints.set_desired_velocities(np.zeros((12,)))
-    device.joints.set_torques(np.zeros((12,)))
- 
-    for j in range(int(params.control_dt/params.dt)):
-        device.send_command_and_wait_end_of_cycle(params.dt)
-        device.parse_sensor_data()
-
-    #import pudb; pudb.set_trace()
-    # RL LOOP ***************************************************
-    k = 0
-    while (not device.is_timeout and k < params.max_steps/10):
-
-        # Update sensor data (IMU, encoders, Motion capture)
-        policy.update_observation(device.joints.positions.reshape((-1, 1)),
+        baseVel = np.array(device.baseVel[0]) if params.SIMULATION else np.zeros(3)
+        # import IPython
+        # IPython.embed()
+        policy.update_observation(baseVel,
+                                  device.joints.positions.reshape((-1, 1)),
                                   device.joints.velocities.reshape((-1, 1)),
-                                  device.imu.attitude_euler.reshape((-1, 1)),
-                                  device.imu.gyroscope.reshape((-1, 1)))
-
-        q_des = policy.forward()
-
+                                  device.imu.attitude_quaternion.reshape((-1, 1)),
+                                  device.imu.gyroscope.reshape((-1, 1)),
+                                  self.height_map())
+        policy.forward()
+        #policy.forward()
         # Set desired quantities for the actuators
         device.joints.set_position_gains(policy.P)
         device.joints.set_velocity_gains(policy.D)
-        device.joints.set_desired_positions(q_des)
+        device.joints.set_desired_positions(policy.q_des)
+
+        # if self.init_cycles <= 5:
+            
+        #     device.joints.set_desired_positions(policy.q_init)
+        #     self.init_cycles = self.init_cycles +1
+
+        # else:
+        #     device.joints.set_desired_positions(policy.q_des)
+
         device.joints.set_desired_velocities(np.zeros((12,)))
         device.joints.set_torques(np.zeros((12,)))
 
         # Send command to the robot
-        for j in range(int(params.control_dt/params.dt)):
+        for j in range(decimation):
             if params.USE_JOYSTICK:
-                joy.update_v_ref(k*10 + j + 1, 0)
+                self.joystick.update_v_ref()
+
             device.parse_sensor_data()
             device.send_command_and_wait_end_of_cycle(params.dt)
+
             if params.LOGGING or params.PLOTTING:
-                mini_logger.sample(device, policy, q_des, policy.get_observation(),
-                                   policy.get_computation_time(), qc)
+                self.logger.sample(policy, policy.q_des, policy.vel_command,
+                                    policy.get_observation(), policy.get_computation_time())
+                
+        self.post_cycle_callback()
+       
+    def post_cycle_callback(self):
+        self.k += 1
+        if self.params.record_video and self.k % 10==0:
+            save_frame_video(int(self.k//10), './recordings/')
 
-        # Increment counter
-        k += 1
-        if params.USE_JOYSTICK:
-            vx = joy.v_ref[0,0]
-            vx = 0 if abs(vx) < 0.3 else vx
-            wz = joy.v_ref[-1,0]
-            wz = 0 if abs(wz) < 0.3 else wz
-            vy = joy.v_ref[1,0] * int(params.enable_lateral_vel)
-            vy = 0 if abs(vy) < 0.3 else vy
-            policy.vel_command = np.array([vx, vy, wz])
-            #print(vx, wz, joy.v_ref)
-        elif params.USE_PREDEFINED:
-            t_rise = 100  # rising time to max vel
-            t_duration = 500  # in number of iterations
-            if k < t_rise + t_duration:
-                v_max = 1.0  # in m/s
-                v_gp = np.min([v_max * (k / t_rise), v_max])
-            else:
-                alpha_v_ref = 0.1
-                v_gp = 0.0  # Stop the robot
-            v_ref = alpha_v_ref * v_gp + (1 - alpha_v_ref) * v_ref  # Low-pass filter
-            policy.vel_command = np.array([v_ref, 0, 0])  
-        elif k > 0 and k % 300 ==0:
-            vx = np.random.uniform(-0.5 , 1.5)
-            vx = 0 if abs(vx) < 0.3 else vx
-            wz = np.random.uniform(-1, 1)
-            wz = 0 if abs(wz) < 0.3 else wz
-            policy.vel_command = np.array([vx, 0, wz])
+    def save_plot_logs(self):
+        params = self.params
+        if params.LOGGING:
+            self.logger.saveAll(suffix = "_" + self.run_name)
+            print("log saved")
 
-        if params.record_video and k % 10==0:
-            save_frame_video(int(k//10), './recordings/')
+        if params.PLOTTING:
+            self.logger.plotAll(params.dt, None)
 
-    if device.is_timeout:
-        print("Time out detected..............")
+    def control_loop(self):
+        self.init_robot_and_wait_floor()
+        while (not self.device.is_timeout and self.k < self.params.max_steps/self.decimation):
+            self.run_cycle()
+            self.update_vel_command()     
+        
+        if self.device.is_timeout:
+            print("Time out detected..............")
 
-    # DAMPING TO GET ON THE GROUND PROGRESSIVELY *********************
-    damping(device, params)
-
-    # FINAL SHUTDOWN *************************************************
-    shutdown(device, params)
-
-    if params.LOGGING:
-        mini_logger.saveAll(suffix = "_" + (polDirName.split("/")[-2]).replace(".", "-"))
-        print("log saved")
-    if params.LOGGING or params.PLOTTING:
-        mini_logger.plotAll(params.dt, None)
-    return 0
-
+        self.damping_and_shutdown()
 
 def main():
     """
     Main function
     """
 
+    params = RLParams()
     if not params.SIMULATION:  # When running on the real robot
         os.nice(-20)  #  Set the process to highest priority (from -20 highest to +20 lowest)
-    control_loop()
+
+    # q_init = np.array([  0., 0.9, -1.64,
+    #              0., 0.9, -1.64,
+
+    #              0., -0.9 , 1.64,
+    #              0., -0.9  , 1.64 ])
+        
+    q_init = np.array([
+                0.3, 0.9, -1.64,
+                -0.3, 0.9, -1.64,
+                0.3, -0.9 , 1.64,
+                -0.3, -0.9  , 1.64 ])
+    params.q_init = q_init
+    policy = ControllerRL(SoloRLDevice.parse_file_loc_policy(), q_init, params.measure_height)
+    
+    device = SoloRLDevice(policy, params, "solo")
+    device.control_loop()
+    device.save_plot_logs()
+
     quit()
 
-
 if __name__ == "__main__":
+    if PROFILER:
+        import cProfile
+
+        profiler = cProfile.Profile()
+        profiler.enable()
+
     main()
+
+    if PROFILER:
+        profiler.disable()
+        profiler.print_stats("calls")

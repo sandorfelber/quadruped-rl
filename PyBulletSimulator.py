@@ -4,6 +4,7 @@ import pybullet_data
 import time as time
 import sys
 import pinocchio as pin
+from Paths import SOLO_URDF
 
 
 class pybullet_simulator:
@@ -13,12 +14,13 @@ class pybullet_simulator:
     Args:
         q_init (array): the default position of the robot
         envID (int): identifier of the current environment to be able to handle different scenarios
-        use_flat_plane (bool): to use either a flat ground or a rough ground
+        terrain (string) see PyBulletSimulator.Init below
+        sampling_interval (float) see PyBulletSimulator.Init below
         enable_pyb_GUI (bool): to display PyBullet GUI or not
         dt (float): time step of the inverse dynamics
     """
 
-    def __init__(self, q_init, envID, use_flat_plane, enable_pyb_GUI, dt=0.001):
+    def __init__(self, q_init, envID, terrain, sampling_interval, enable_pyb_GUI, dt=0.001):
 
         self.applied_force = np.zeros(3)
 
@@ -36,19 +38,25 @@ class pybullet_simulator:
         # Load horizontal plane
         pyb.setAdditionalSearchPath(pybullet_data.getDataPath())
 
-        # Roll and Pitch angle of the ground
-        p_roll = 0.0 / 57.3  # Roll angle of ground
+        # Roll and Pitch angle of the ground
+        p_roll = 0.0 / 57.3  # Roll angle of ground
         p_pitch = 0.0 / 57.3  # Pitch angle of ground
 
         # Either use a flat ground or a rough terrain
-        if use_flat_plane:
+        
+        terrain_type = terrain.split(":")[0]
+        if terrain_type == "plane" or terrain_type == "custom":
             self.planeId = pyb.loadURDF("plane.urdf")  # Flat plane
             self.planeIdbis = pyb.loadURDF("plane.urdf")  # Flat plane
 
             # Tune position and orientation of plane
             pyb.resetBasePositionAndOrientation(self.planeId, [0, 0, 0.0], pin.Quaternion(pin.rpy.rpyToMatrix(p_roll, p_pitch, 0.0)).coeffs())
             pyb.resetBasePositionAndOrientation(self.planeIdbis, [200.0, 0, -100.0 * np.sin(p_pitch)], pin.Quaternion(pin.rpy.rpyToMatrix(p_roll, p_pitch, 0.0)).coeffs())
-        else:
+        
+            self.height_map = np.zeros((1,))
+            self.sampling_bounds = [0, 0, 1, 1, 1]
+
+        elif terrain_type == "rough":
             import random
             random.seed(41)
             # p.configureDebugVisualizer(p.COV_ENABLE_RENDERING,0)
@@ -70,7 +78,7 @@ class pybullet_simulator:
                     height_prev = height
 
             # Create the collision shape based on the height field
-            terrainShape = pyb.createCollisionShape(shapeType=pyb.GEOM_HEIGHTFIELD, meshScale=[.05, .05, 1],
+            terrainShape = pyb.createCollisionShape(shapeType=pyb.GEOM_HEIGHTFIELD, meshScale=[0.05, 0.05, 1],
                                                     heightfieldTextureScaling=(numHeightfieldRows-1)/2,
                                                     heightfieldData=heightfieldData,
                                                     numHeightfieldRows=numHeightfieldRows,
@@ -79,6 +87,57 @@ class pybullet_simulator:
             pyb.resetBasePositionAndOrientation(self.planeId, [0, 0, 0], [0, 0, 0, 1])
             pyb.changeVisualShape(self.planeId, -1, rgbaColor=[1, 1, 1, 1])
 
+            self.height_map = np.zeros((1,)) # np.array(heightfieldData).reshape(numHeightfieldRows, numHeightfieldColumns) # not sure this is the correct way
+            self.sampling_bounds = [0, 0, 1, 1, 1]
+
+        if terrain_type == "custom":
+            terrain = terrain.split(":")[1]
+            import os
+            
+            minx, maxx, miny, maxy, minz, maxz = 0, sampling_interval, 0, sampling_interval, 0, 1
+            self.terrain_objs = {}
+
+            objects = os.listdir(terrain)
+            for obj in objects:
+                if len(obj) > 0 and obj[0] == "_":
+                    continue
+
+                urdf = os.path.join(terrain, obj, obj + ".urdf")
+                print("Loading terrain object:", urdf, end="")
+                self.terrain_objs[obj] = pyb.loadURDF(urdf)
+                pyb.resetBasePositionAndOrientation(self.terrain_objs[obj], [0, 0, 0.001], [0, 0, 0, 1])                
+                print(" DONE")
+            
+                a, b = pyb.getAABB(self.terrain_objs[obj])
+                minx = min(minx, a[0])
+                miny = min(miny, a[1])
+                minz = min(minz, a[2])
+
+                maxx = max(maxx, b[0])
+                maxy = max(maxy, b[1])                
+                maxz = max(maxz, b[2])
+
+            minx -= sampling_interval
+            maxx += sampling_interval
+            miny -= sampling_interval
+            maxy += sampling_interval
+
+            x_pts = np.arange(minx, maxx+sampling_interval, sampling_interval)
+            y_pts = np.arange(miny, maxy+sampling_interval, sampling_interval)
+            x, y = np.meshgrid(x_pts, y_pts)
+
+            print("Sampling height map...", end="")
+            self.height_map = np.zeros_like(x)
+
+            for i in range(x.shape[0]):
+                for j in range(x.shape[1]):
+                    self.height_map[i,j] = pyb.rayTest([x[i,j], y[i,j], maxz+1], [x[i,j], y[i,j], minz-1])[0][3][2]
+             
+            self.sampling_bounds = [minx, miny, *self.height_map.shape[0:2], sampling_interval]
+            self.height_map = self.height_map.flatten()
+
+            print(" DONE")
+            
         if envID == 1:
 
             # Add stairs with platform and bridge
@@ -193,7 +252,7 @@ class pybullet_simulator:
                                               visualFramePosition=[0.0, 0.0, 0.0],
                                               meshScale=mesh_scale)
 
-        self.ftps_Ids = np.zeros((4, 5), dtype=np.int)
+        self.ftps_Ids = np.zeros((4, 5), dtype=int)
         for i in range(4):
             for j in range(5):
                 self.ftps_Ids[i, j] = pyb.createMultiBody(baseMass=0.0,
@@ -238,7 +297,7 @@ class pybullet_simulator:
         robotStartPos = [0, 0, 0.0]
         robotStartOrientation = pyb.getQuaternionFromEuler([0.0, 0.0, 0.0])  # -np.pi/2
         
-        pyb.setAdditionalSearchPath("/opt/openrobots/share/example-robot-data/robots/solo_description/robots")
+        pyb.setAdditionalSearchPath(SOLO_URDF)
         self.robotId = pyb.loadURDF("solo12.urdf", robotStartPos, robotStartOrientation)
 
         # Disable default motor control for revolute joints
@@ -633,6 +692,10 @@ class PyBulletSimulator():
         self.joints = Joints(self)
         self.robot_interface = RobotInterface()
 
+        self.dummyPos = np.zeros(3)
+        self.baseVel = np.zeros(3)
+        self.debugPoints = -1
+
         # Measured data
         self.o_baseVel = np.zeros((3, 1))
         self.o_imuVel = np.zeros((3, 1))
@@ -649,20 +712,22 @@ class PyBulletSimulator():
         self._alpha = 0.0
         self.filterTorques = np.zeros(self.nb_motors)
 
-    def Init(self, calibrateEncoders=False, q_init=None, envID=0, use_flat_plane=True, enable_pyb_GUI=False, dt=0.002, alpha=0.0):
+    def Init(self, calibrateEncoders=False, q_init=None, envID=0, terrain_type="plane", sampling_interval=0.01, enable_pyb_GUI=False, dt=0.002, alpha=0.0):
         """Initialize the PyBullet simultor with a given environment and a given state of the robot
 
         Args:
             calibrateEncoders (bool): dummy variable, not used for simulation but used for real robot
             q_init (12 x 0 array): initial angular positions of the joints of the robot
             envID (int): which environment should be loaded in the simulation
-            use_flat_plane (bool): to use either a flat ground or a rough ground
+            terrain_type (string): "plane", "rough" or "custom:/path/to/terrain"
+            sampling_interval (float): interval in meters between each point in the global sampled height map
+                                        (currently only supported with a custom terrain)
             enable_pyb_GUI (bool): to display PyBullet GUI or not
             dt (float): time step of the simulation
         """
 
         # Initialisation of the PyBullet simulator
-        self.pyb_sim = pybullet_simulator(q_init, envID, use_flat_plane, enable_pyb_GUI, dt)
+        self.pyb_sim = pybullet_simulator(q_init, envID, terrain_type, sampling_interval, enable_pyb_GUI, dt)
         self.q_init = q_init
         self.joints.positions[:] = q_init
         self.dt = dt
@@ -671,6 +736,42 @@ class PyBulletSimulator():
         self._alpha = alpha
 
         return
+    
+    def terrain_height(self, points, robot_frame=True):
+        """Returns the terrain's sampled height at the specified location(s). Only for simulation.
+        This is only implemented for custom terrains and will always return 0-filled arrays with
+        plane or rough terrains.
+        
+        points (numpy array of shape [..., 2]): an array of 2D coordinates, either in
+                                                the robot's frame or the world frame,
+                                                depending on the value of parameter robot_frame
+        robot_frame (bool): whether the coordinates are expressed in the robot's frame
+
+        Returns:
+            a numpy array with the same shape as 'points' (except the last dimension is removed)
+        """
+        if robot_frame:
+            points = np.concatenate((points, np.zeros_like(points[..., 0:1])), axis=-1)[..., None]
+            points = pin.rpy.rpyToMatrix(np.array([0, 0, self.imu.attitude_euler[2]]))[None] @ points
+            points = (points.squeeze(-1) + self.dummyPos)[..., :2]
+
+        _c = points.copy()
+    
+        points = (points - np.array(self.pyb_sim.sampling_bounds[:2])) / self.pyb_sim.sampling_bounds[4]
+        points = points.astype(int)
+
+        coords = np.ravel_multi_index((points[..., 1], points[..., 0]), self.pyb_sim.sampling_bounds[2:4], mode="clip")
+       
+       # UNCOMMENT TO SHOW MEASURED POINTS
+      #  if self.debugPoints >= 0:
+     #       pyb.removeUserDebugItem(self.debugPoints)
+      #  self.debugPoints = pyb.addUserDebugPoints(np.concatenate((_c, self.pyb_sim.height_map[coords][..., None]), axis=-1),
+       #                         np.tile(np.array([[1, 0, 0]]), (187, 1)),
+      #                          pointSize=5,
+       #                         lifeTime=0.1
+       #                         )
+
+        return self.pyb_sim.height_map[coords]
 
     def cross3(self, left, right):
         """Numpy is inefficient for this
@@ -755,8 +856,8 @@ class PyBulletSimulator():
         # Compute one step of simulation
         pyb.stepSimulation()
 
-        pyb.resetDebugVisualizerCamera(cameraDistance=0.6, 
-                                       cameraYaw=(0.0*self.imu.attitude_euler[2]*(180/3.1415)+45),
+        pyb.resetDebugVisualizerCamera(cameraDistance=0.9, 
+                                       cameraYaw=(0.0*self.imu.attitude_euler[2]*(180/3.1415)-0),
                                        cameraPitch=-39.9,
                                        cameraTargetPosition=[self.baseState[0][0], self.baseState[0][1] + 0.0, 0.0])
 

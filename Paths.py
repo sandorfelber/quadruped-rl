@@ -1,0 +1,1 @@
+SOLO_URDF = "/opt/openrobots/share/example-robot-data/robots/solo_description/robots"

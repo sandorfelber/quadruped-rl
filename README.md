@@ -1,3 +1,5 @@
+Based on the work of Pierre-Alexandre Leziart from Gepetto : https://gitlab.laas.fr/paleziart/quadruped-rl/-/tree/main/
+
 # quadruped-rl
 
 Implementation of a data-based control architecture on the Solo-12 quadruped, using neural networks trained with reinforcement learning.

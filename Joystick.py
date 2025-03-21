@@ -3,7 +3,7 @@
 import numpy as np
 import gamepadClient as gC
 
-LAASGAMEPAD=1
+LAASGAMEPAD=0
 
 class Joystick:
     """Joystick-like controller that outputs the reference velocity in local frame
@@ -28,10 +28,14 @@ class Joystick:
         self.vY = 0.
         self.vYaw = 0.
         self.vZ = 0.
-        self.VxScale = 0.75
-        self.VyScale = 1.
-        self.vYawScale = .8
+        self.VxScale = 0.35
+        self.VyScale = 0.45
+        self.vYawScale = 1.
         self.vZScale = 0.3
+        # self.VxScale = 0.15
+        # self.VyScale = 0.225
+        # self.vYawScale = 0.5
+        # self.vZScale = 0.15
     
         self.Vx_ref = 0.0
         self.Vy_ref = 0.0
@@ -45,21 +49,9 @@ class Joystick:
         self.joystick_code = 0  # Code to carry information about pressed buttons
 
         self.reset = False
+        self.client_init = False
 
-    def update_v_ref(self, k_loop, velID, is_static=False):
-        """Update the reference velocity of the robot along X, Y and Yaw in local frame by
-        listening to a gamepad handled by an independent thread
-
-        Args:
-            k_loop (int): numero of the current iteration
-            velID (int): Identifier of the current velocity profile to be able to handle different scenarios
-        """
-
-        self.update_v_ref_gamepad(k_loop, is_static)
-
-        return 0
-
-    def update_v_ref_gamepad(self, k_loop, is_static):
+    def update_v_ref(self):
         """Update the reference velocity of the robot along X, Y and Yaw in local frame by
         listening to a gamepad handled by an independent thread
 
@@ -69,23 +61,25 @@ class Joystick:
 
         # Create the gamepad client
         if LAASGAMEPAD:
-            if k_loop == 0:
+            if not self.client_init:                
                 self.gp = gC.GamepadClient()
 
                 self.gp.leftJoystickX.value = 0.00390625
                 self.gp.leftJoystickY.value = 0.00390625
                 self.gp.rightJoystickX.value = 0.00390625
+                self.client_init = True
 
             self.vX = (self.gp.leftJoystickX.value / 0.00390625 - 1 ) * self.VxScale
             self.vY = (self.gp.leftJoystickY.value / 0.00390625 - 1 ) * self.VyScale
             self.vYaw = (self.gp.rightJoystickX.value / 0.00390625 - 1 ) * self.vYawScale
 
         else:
-            if k_loop == 0:
+            if not self.client_init:
                 self.gp = gC.GamepadClient()
                 self.gp.leftJoystickX.value = 0.
                 self.gp.leftJoystickY.value = 0.
                 self.gp.rightJoystickX.value = 0.
+                self.client_init = True
 
             self.vX = self.gp.leftJoystickX.value * self.VxScale
             self.vY = self.gp.leftJoystickY.value * self.VyScale
@@ -152,15 +146,21 @@ class Joystick:
 if __name__ == "__main__":
 
     from matplotlib import pyplot as plt
-    from time import clock
+    from time import time as clock
+
     joystick = Joystick()
-    joystick.update_v_ref(0, 0)
+    joystick.update_v_ref()
     k = 0
     vx = [0.0] * 1000
+    vy = [0.0] * 1000
+    vyaw = [0.0] * 1000
+
     fig = plt.figure()
     ax = plt.gca()
     ax.set_ylim([-2.5, 2.5])
-    h, = plt.plot(np.linspace(0.001, 1.0, 1000), vx, "b", linewidth=2)
+    h1, = plt.plot(np.linspace(0.001, 1.0, 1000), vx, "b", linewidth=2)  # forwards/backwards
+    h2, = plt.plot(np.linspace(0.001, 1.0, 1000), vy, "r", linewidth=2) # left/right
+    h3, = plt.plot(np.linspace(0.001, 1.0, 1000), vyaw, "g", linewidth=2) # left/right
     plt.xlabel("Time [s]")
     plt.ylabel("Forward reference velocity [m/s]")
     plt.show(block=False)
@@ -168,14 +168,24 @@ if __name__ == "__main__":
     print("Start")
     while True:
         # Update the reference velocity coming from the gamepad
-        joystick.update_v_ref(k, 0)
+        joystick.update_v_ref()
         vx.pop(0)
         vx.append(joystick.v_ref[0, 0])
+        vy.pop(0)
+        vy.append(joystick.v_ref[1, 0])
+        vyaw.pop(0)
+        vyaw.append(joystick.v_ref[5, 0])
 
         if k % 50 == 0:
-            h.set_ydata(vx)
-            print("Joystick raw:      ", joystick.v_gp[0, 0])
-            print("Joystick filtered: ", joystick.v_ref[0, 0])
+            h1.set_ydata(vx)
+            h2.set_ydata(vy)
+            h3.set_ydata(vyaw)
+            print("Joystick raw x:        ", joystick.v_gp[0, 0])
+            print("Joystick filtered x:   ", joystick.v_ref[0, 0])
+            print("Joystick raw y:        ", joystick.v_gp[1, 0])
+            print("Joystick filtered y:   ", joystick.v_ref[1, 0])
+            print("Joystick raw yaw:      ", joystick.v_gp[5, 0])
+            print("Joystick filtered yaw: ", joystick.v_ref[5, 0])
             plt.pause(0.0001)
 
         k += 1

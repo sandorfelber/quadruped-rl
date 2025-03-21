@@ -1,37 +1,37 @@
 robot:
-    interface: enp2s0
+    interface: enp4s0
     joint_modules:
-        motor_numbers: [0, 3, 2, 1, 5, 4, 6, 9, 8, 7, 11, 10]
+        motor_numbers: [2, 5, 4, 3, 0, 1, 6, 9, 8, 7, 11, 10]
         motor_constants: 0.025
         gear_ratios: 9.
         max_currents: 12.
-        reverse_polarities: [
-            false, true, true, true, false, false,
-            false, true, true, true, false, false
-        ]
+        reverse_polarities: [false, true, true, true, false, false, false, true, true, true, false, false]
         lower_joint_limits: [
-            -1.1, -2.05, -2.6, -1.1, -2.05, -2.6,
-            -1.1, -2.05, -2.6, -1.1, -2.05, -2.6
+            -1.2, -2.0, -3.12, -1.2, -2.0, -3.12,
+            -1.2, -2.0, -3.12, -1.2, -2.0, -3.12
         ]
+        
         upper_joint_limits: [
-            1.1,  2.05, +2.6, +1.1, +2.05, +2.6,
-            1.1,  2.05, +2.6, +1.1, +2.05, +2.6
+            1.2,  2., +3.12, +1.2, 2., +3.12,
+            1.2,  2., +3.12, +1.2, 2., +3.12
         ]
         max_joint_velocities: 80.
         safety_damping: 0.5
     imu:
-        rotate_vector: [1, 2, 3]
-        orientation_vector: [-4, 3, -2, 1]
+        rotate_vector: [-1, -2, 3]
+        orientation_vector: [4, -3, -2, 1]
 joint_calibrator:
     # Can be either POS, NEG, ALT or AUTO
     search_methods: [
       AUTO, AUTO, AUTO, AUTO, AUTO, AUTO,
       AUTO, AUTO, AUTO, AUTO, AUTO, AUTO
     ]
-    position_offsets: [
-         0.1596, -0.2471,  0.2973, -0.2421,  0.1022, -0.2663,
-         -0.1478, -0.1001, -0.0976,  0.0957,  0.3399, -0.2494
-    ]
+    # Calibration 29/03/2023
+#     position_offsets: [-0.2002, -0.0145, -0.2815,  0.1541,  0.1371, -0.0985, -0.3316, -0.1338,
+#   0.3232, -0.0243,  0.0563, -0.0336]
+    # Calibration 04/04/2023
+    position_offsets: [-0.1932,  0.0112,  0.0924,  0.154 ,  0.1337, -0.1065, -0.3291, -0.133 ,
+    0.3176, -0.025 ,  0.0636, -0.0333]
     calib_order: [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0]
     calib_pos: [
         0.0,  1.2, -2.4,
